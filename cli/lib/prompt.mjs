@@ -46,14 +46,29 @@ function renderLines(title, items, { cursor, selected, multi, hint }) {
   return out;
 }
 
+// Bề rộng hiển thị của một dòng = độ dài sau khi bỏ mã màu ANSI (mã màu rộng 0 trên màn hình).
+const stripAnsi = (s) => s.replace(/\x1b\[[0-9;]*m/g, '');
+/**
+ * Số DÒNG VISUAL thật của text: mỗi dòng logic dài hơn `width` bị terminal WRAP thành nhiều
+ * dòng, nên đếm theo ceil(bề-rộng/width) — nếu không, cursor-up khi vẽ lại sẽ hụt và để sót
+ * dòng cũ (text bị trùng khi lên/xuống). Dòng rỗng vẫn tính 1.
+ */
+function visualRows(text, width) {
+  const w = width > 0 ? width : 80;
+  let n = 0;
+  for (const line of text.split('\n')) n += Math.max(1, Math.ceil(stripAnsi(line).length / w));
+  return n;
+}
+
 /**
  * Khung hiển thị một frame: gộp các dòng thành text + đếm số DÒNG HIỂN THỊ THẬT
- * (kể cả khi title chứa '\n' nhiều dòng). `rows` dùng cho lệnh cuộn con trỏ lên khi vẽ lại,
- * nên phải đếm theo dòng visual chứ KHÔNG phải số phần tử mảng. Export để test.
+ * (kể cả title '\n' nhiều dòng LẪN dòng bị wrap khi dài hơn `width`). `rows` dùng cho lệnh
+ * cuộn con trỏ lên khi vẽ lại, nên phải đếm theo dòng visual chứ KHÔNG phải số phần tử mảng.
+ * `width` mặc định = bề rộng terminal hiện tại (fallback 80 khi không phải TTY). Export để test.
  */
-export function renderFrame(title, items, opts) {
+export function renderFrame(title, items, opts, width = process.stdout.columns || 80) {
   const text = renderLines(title, items, opts).join('\n');
-  return { text, rows: text.split('\n').length };
+  return { text, rows: visualRows(text, width) };
 }
 
 function runSelect(title, items, { multi = false, preselected = [], min = 0 } = {}) {

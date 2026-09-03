@@ -28,6 +28,14 @@ ok(BACK !== CANCEL, 'BACK !== CANCEL');
   ok(f.rows === 5, 'renderFrame: title 2 dòng + 2 item + hint = 5 dòng (không undercount)');
 }
 
+// renderFrame: đếm CẢ dòng bị WRAP khi label dài hơn bề rộng terminal (bug up/down duplicate text)
+{
+  const f = renderFrame('t', [{ label: 'x'.repeat(50) }], { cursor: 0, selected: new Set(), multi: false, hint: 'h' }, 20);
+  // width=20 · title "t"(1) + item "> "+50 = 52 ký tự → ceil(52/20)=3 + hint "h"(1) = 5 dòng visual
+  ok(f.rows === 5, `renderFrame: label wrap theo width → đếm đủ visual rows (được ${f.rows}, mong đợi 5)`);
+  ok(f.rows > f.text.split('\n').length, 'renderFrame: dòng wrap KHÔNG bị undercount (rows > số dòng logic)');
+}
+
 import { runWizard } from '../cli/lib/wizard.mjs';
 
 // Stub prompt: trả lần lượt theo kịch bản đã nạp.
