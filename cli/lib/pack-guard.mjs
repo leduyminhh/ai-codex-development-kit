@@ -21,12 +21,19 @@ const DEFAULT_POLICY = {
   // file nhất định cấp root trong package (luôn có).
   allowFile: ["package.json", "package-lock.json", "LICENSE", "README.md", "AGENTS.md"],
   // denylist: pattern regex (string) chặn file dù nằm trong allowlist.
+  // Ngoài test/docs, chỉ publish plugin `backend`: 3 plugin còn lại + config
+  // Cowork (_cowork.json, tham chiếu skill của mọi plugin) bị chặn fail-loud
+  // nếu lọt vào gói. Giữ khớp với deny trong pack.config.json ở root.
   deny: [
     "\\.test\\.mjs$",
     "^test/",
     "^docs/",
     "^completions/",
     "^SHELL_SETUP\\.md$",
+    "^plugins/frontend/",
+    "^plugins/olap-warehouse/",
+    "^plugins/oltp-database/",
+    "^plugins/_cowork\\.json$",
   ],
   // file bắt buộc phải có trong package (gồm bin entry + khai báo).
   required: ["cli/index.mjs", "cli/build.mjs", "cli/lib/install.mjs", "cli/lib/plugins.mjs"],

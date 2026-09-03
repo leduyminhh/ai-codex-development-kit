@@ -23,8 +23,9 @@
     "cli/",
     "core/",
     "templates/",
-    "plugins/",
     "adapters/",
+    "plugins/backend/",
+    "plugins/_marketplace.json",
     "README.md",
     "AGENTS.md",
     "LICENSE"
