@@ -411,7 +411,7 @@ export function install({ providers, plugins, scope = 'project', mode = 'skills'
   if (!USE_LINK) console.warn('[aip] Cài qua npm (node_modules) → dùng copy thay vì symlink (bản cài self-contained).');
   const provs = !providers || providers === 'all' ? PROVIDERS : (Array.isArray(providers) ? providers : [providers]);
   // Codex nạp native skills ở mức user (~/.codex/skills). Cài scope=project (.codex/skills/ trong
-  // repo) thường KHÔNG được codex đọc → cảnh báo để tránh tưởng đã cài (xem 00-HUONG-DAN mục Codex).
+  // repo) thường KHÔNG được codex đọc → cảnh báo để tránh tưởng đã cài.
   if (scope === 'project' && provs.includes('codex')) {
     console.warn('[aip] codex nạp native skills từ ~/.codex/skills (mức user); cài scope=project ' +
       'thường KHÔNG được codex đọc — cân nhắc cài global: aip install --provider codex -g');

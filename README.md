@@ -14,8 +14,8 @@ Pure ESM, **zero runtime dependencies**, no build step. Node.js 20+.
 ## Quickstart
 
 ```bash
-git clone https://github.com/leduyminhh/ai-development-kit.git
-cd ai-development-kit
+git clone https://github.com/leduyminhh/ai-engineering-platform.git
+cd ai-engineering-platform
 npm install        # nothing to compile — installs dev tooling only
 npm test           # all suites should pass
 npm link           # expose `aip` on PATH
@@ -73,11 +73,12 @@ Every command runs `node cli/index.mjs`.
 
 ```bash
 aip                 # menu wizard: install | uninstall | build | check
-aip install   --provider all|<p>... --plugin all|<id>... [-g] [--yes]
-aip uninstall [--provider ...] [--plugin ...] [-g] [--yes]
-aip build     --provider all|<p>...
+aip install   --provider all|<p>... --plugin all|<id>... [-g] [--yes] [--as-plugin]
+aip uninstall [--provider ...] [--plugin ...] [-g] [--yes]   # alias: remove
+aip build     --provider all|<p>...   # alias flag: --target
 aip check     [-g]
 aip update    [-g]        # git pull + rebuild + reinstall tracked installs
+aip pack                  # bundle Cowork skills -> build/cowork/<skill>.zip
 aip list                  # discovered adapters + plugins
 ```
 
@@ -85,8 +86,11 @@ aip list                  # discovered adapters + plugins
 - **Install** is symlink-first (junctions on Windows) with a copy fallback, and is
   additive — installing another plugin unions with what is already there. It also
   merges the baseline managed block into the project's instruction file.
-- **Uninstall** removes only tracked paths (never link targets), prunes emptied
-  directories, and reference-counts the shared managed block.
+- **`--as-plugin`** (Claude only) installs via the `claude` CLI as a real plugin
+  (marketplace + namespaced `<id>:<skill>`) instead of flat `.claude/skills/`;
+  requires `claude` on PATH.
+- **Uninstall** (alias `remove`) removes only tracked paths (never link targets),
+  prunes emptied directories, and reference-counts the shared managed block.
 - Providers installed by default: `claude`, `cursor`, `codex`. `antigravity` builds
   but installs only when named explicitly (`--provider antigravity`).
 

@@ -5,63 +5,90 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.1] - 2026-06-24
+## [1.1.1] - 2026-09-03
 
-### Fixed
-
-- **Runtime crash in `aie remove` and `aie upgrade`** — `findOutdated` and the uninstall wizard read `plugin.metadata.id` on flat lock entries (which only carry `id`/`version`), throwing `Cannot read properties of undefined (reading 'id')`. Reverted those code paths to read `id`/`version` from lock entries while keeping `metadata.id` where plugin manifests are read.
-- **Broken test suite** — The v1.1.0 standardization series was merged without running `npm test`, leaving 17 failing tests. Updated fixtures to the shipped behavior (renamed skills, new `application` dependency set) and removed tests for the deleted `detect-feature-stack.mjs` script.
-
-### Added
-
-- **Core/plugin workflow sync validator** — `aie validate` now fails loud when a `core/workflows/*.yaml` global fallback drifts from its plugin-owned source, preventing the duplication bug class seen with the old `fullstack-feature` workflow.
-
-### Removed
-
-- **`youtube-transcript` skill** — Removed the empty `knowledge` skill (no command or workflow consumed it) and all references across the plugin manifest, skill registry, naming rules, READMEs, and the Codex agent adapter.
-
-## [1.1.0] - 2026-06-23
+Re-platform to the zero-dependency `aip` engine. **Breaking change** — there is no
+in-place upgrade from the legacy `ai-engineering` / `aie` platform; see
+[MIGRATION.md](MIGRATION.md). Legacy history is preserved under
+[Legacy (aie platform)](#legacy-aie-platform) below.
 
 ### Changed
 
-- **Plugin standardization refactor** — Unified skill, command, and workflow naming across all 7 plugins
-  - Renamed workflows: `fullstack-feature` → `feature-delivery-pipeline`
-  - Renamed commands: `migration-plan` → `plan-migration`, `deployment-plan` → `plan-deployment`
-  - Renamed skills: `java-analyze` → `java-implement`, `react-code-generate` → `react-implement`, `python-backend-engineer` → `python-implement`
-  - Consolidated 7 phase-specific feature-* skills into required implementation skills
+- **Engine** — rebuilt on pure ESM with **zero runtime dependencies** and **no build
+  step** (previously TypeScript compiled to `cli/dist/`). Includes a hand-rolled
+  YAML-frontmatter parser and ZIP writer using Node built-ins only.
+- **CLI** — renamed `ai-engineering` / `aie` → `ai-engineering-platform` / `aip`.
+- **Commands** — `install`, `uninstall` (alias `remove`), `build`, `check`, `list`,
+  `update`, `pack`, plus an interactive menu wizard.
+- **Plugin manifest** — `plugins/<id>/plugin.yaml` (assets/skills lists) →
+  `plugins/<id>/.manifest.json` (`id`/`name`/`description`/`version`) with
+  auto-discovered `skills/<skill>/SKILL.md`.
+- **Plugin catalog** — 7 abstract plugins (`application`, `architecture`, `data`,
+  `knowledge`, `platform`, `quality`, `security`) → 4 domain plugins (`backend`,
+  `frontend`, `oltp-database`, `olap-warehouse`) plus `core`.
+- **Workflow model** — the 5-stage per-plugin pipeline is gone; skills are now
+  **standalone, on-demand recipes** (`pipeline: false`, no mandatory chain).
+- **State** — a multi-file `.ai-engineering/` layout (`platform.lock`,
+  `ownership.json`, backups) collapsed to a single flat
+  `<scope-root>/.ai-engineering/manifest.json`.
+- **Install** — symlink-first (junctions on Windows) with a copy fallback, additive
+  (unions with what is already installed), and reference-counts the shared managed
+  block in `AGENTS.md` / `CLAUDE.md`.
 
-- **Plugin structure cleanup**
-  - Removed phantom skill references (non-existent skills in plugin manifests)
-  - Removed duplicate top-level identity fields from plugin.yaml (metadata is now single source of truth)
-  - Promoted optional dependencies to required where skills are directly used in commands (quality, security, data)
+### Added
 
-- **Schema denormalization** — Cleaned up plugin.yaml structure to eliminate redundant metadata
+- **`$AIE_INSTALL_ROOT`** — env override for the scope root (used by tests to isolate
+  installs).
+- **Cowork packaging** — `aip pack` bundles the `plugins/_cowork.json` skill set into
+  deterministic `build/cowork/<skill>.zip` files for Customize → Skills → Upload.
+- **npm pack guard** — `cli/lib/pack-guard.mjs` + `pack.config.json` verify on
+  `prepack` that the publish file set stays within an allowlist.
+- **`--as-plugin`** — install Claude content as a real plugin via the `claude`
+  CLI (marketplace + namespaced `<id>:<skill>`) instead of flat `.claude/skills/`.
 
-### Fixed
+### Removed
 
-- Fixed stale workflow references in core/workflows/ after command renames
-- Updated all skill registry entries to reflect renamed skills
-- Updated README tables and documentation with new skill/command names
-- Fixed stale skill name references in SKILL.md documentation files
+- **MCP registration** — projected `.mcp.json` / registry and the `providers/`
+  policy tree are removed.
+- **`ai-engineering.config.yaml`** — no longer used.
+- **Pipeline skills** — the `*-analysis`, `*-api-contract`, `*-ui-contract`,
+  `*-state-model`, `*-erd`, `*-implement`, `*-example`, `*-share-contract`,
+  `*-schema-contract`, `*-model-lineage`, `*-migration` skills are gone. Kept: four
+  `*-init` scaffolders and two backend recipes (`backend-migrate-architecture`,
+  `backend-migrate-vault-consul`).
+- **Runnable code skeletons** — `*-init` skills now scaffold **documentation only**
+  (no FastAPI / React / Postgres overlays).
+- **PowerShell hook subsystem** (`cli/scripts/`) — not part of this engine.
 
-### Improved
+---
 
-- CLI now reads from metadata block (no fallback to top-level fields)
-- Validation stricter: metadata.id is authoritative
-- All 95 files touched; 812 insertions, 1010 deletions net
+## Legacy (aie platform)
 
-### Validation
+The entries below describe the previous `ai-engineering` / `aie` platform, replaced
+by the re-platform above. They are retained for history only and do not describe the
+current `aip` engine.
 
-- All 7 plugins validate successfully for 4 providers (codex, claude, cursor, antigravity)
-- No broken workflow references or missing skill registry entries
-- CLI commands (validate, workflow list, plugin list) all functional
+### aie 1.1.1 - 2026-06-24
 
-## [1.0.0] - 2026-06-xx
+- **Fixed** — runtime crash in `aie remove` / `aie upgrade` (`findOutdated` and the
+  uninstall wizard read `plugin.metadata.id` on flat lock entries); broken test suite
+  from the v1.1.0 standardization series merged without running `npm test`.
+- **Added** — core/plugin workflow sync validator (`aie validate` fails loud when a
+  `core/workflows/*.yaml` fallback drifts from its plugin-owned source).
+- **Removed** — the empty `youtube-transcript` (`knowledge`) skill and all references.
 
-### Initial Release
+### aie 1.1.0 - 2026-06-23
 
-- AI engineering platform CLI with plugin system
-- Support for 7 plugins: application, architecture, data, knowledge, platform, quality, security
-- Adapter generation for Codex, Claude Code, Cursor, and Antigravity
-- Interactive install/uninstall/upgrade wizards
-- Plugin validation and doctor commands
+- **Changed** — plugin standardization: unified skill/command/workflow naming across
+  7 plugins (`fullstack-feature` → `feature-delivery-pipeline`; `migration-plan` →
+  `plan-migration`; `java-analyze` → `java-implement`; etc.); removed phantom skill
+  references and duplicate identity fields from `plugin.yaml`.
+- **Fixed** — stale workflow/skill references after renames.
+- **Improved** — CLI reads authoritative `metadata` block; stricter validation.
+
+### aie 1.0.0 - 2026-06
+
+- Initial release — `aie` CLI with a 7-plugin system (`application`, `architecture`,
+  `data`, `knowledge`, `platform`, `quality`, `security`), adapter generation for
+  Codex, Claude Code, Cursor, and Antigravity, install/uninstall/upgrade wizards, and
+  plugin validation / doctor commands.

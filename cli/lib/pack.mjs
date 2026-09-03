@@ -1,7 +1,7 @@
 // Đóng gói skill cho Cowork — Cowork nạp skill bằng cách UPLOAD .zip (Customize → Skills),
 // KHÔNG đọc kho plugin local của Claude Code. Module này build mỗi skill (theo manifest
 // plugins/_cowork.json, mặc định = skill runsIn:plan + core principles) thành build/cowork/<skill>.zip,
-// bên trong là THƯ MỤC skill ở gốc (vd backend-analysis/SKILL.md) — đúng định dạng Cowork cần.
+// bên trong là THƯ MỤC skill ở gốc (vd backend-init/SKILL.md) — đúng định dạng Cowork cần.
 //
 // ZIP writer ZERO-DEPENDENCY: zlib.deflateRawSync (built-in) + tự dựng header/central-directory + CRC32.
 // Chạy y hệt mọi OS, không cần `zip`/`Compress-Archive`.

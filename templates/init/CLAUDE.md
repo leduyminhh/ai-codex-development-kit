@@ -46,6 +46,7 @@ Khi commit, push, tạo/chuyển branch, chuẩn bị PR, merge, release hoặc 
 - docs/requests/<...>/plan.md  >  TODO.md
 
 ## Onboarding skill (cho người mới mở repo)
-Repo này KHÔNG chứa skill workflow; skill sống ở KIT nguồn riêng và được cài theo máy.
+Repo này KHÔNG chứa skill workflow; skill sống ở KIT nguồn riêng (ai-engineering-platform,
+CLI `aip`) và được cài bằng `aip install` (project scope hoặc `-g` cho global).
 Khi mở repo mà các skill workflow chưa khả dụng, HÃY HỎI người dùng có muốn cài từ kit không
 (xem README, mục "Onboarding cho người mới clone"). KHÔNG tự cài khi chưa được đồng ý.

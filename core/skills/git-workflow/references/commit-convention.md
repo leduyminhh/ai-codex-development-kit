@@ -34,7 +34,7 @@ Important notes / Breaking impact:
 - Title: tiếng Anh, thể mệnh lệnh, thường dưới 72 ký tự.
 - Body: tiếng Việt CÓ DẤU (UTF-8) mặc định, trừ khi người dùng/repo nói khác.
 - Commit message hiển thị dạng plain text: KHÔNG bọc tên file, định danh, lệnh, cờ trong
-  backtick — viết trần (vd: update .env, chạy aie install, mục Changed). Chỉ dùng backtick
+  backtick — viết trần (vd: update .env, chạy aip install, mục Changed). Chỉ dùng backtick
   khi token thật sự không đọc nổi nếu thiếu.
 - Breaking change: thêm `!` vào header, kèm `BREAKING CHANGE:` và mục `Migration:` khi
   consumer phải hành động.

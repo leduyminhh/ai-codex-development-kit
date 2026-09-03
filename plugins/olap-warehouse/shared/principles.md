@@ -12,7 +12,7 @@
 - **Đọc dữ liệu TỪ:** các nguồn vận hành — gồm chính `oltp-database` — KHÔNG sở hữu giao dịch vận hành.
 - **Phục vụ:** BI/report/dashboard, data science, downstream dataset consumer.
 - **KHÁC ai:** KHÁC `oltp-database` (giao dịch vận hành OLTP, DB dùng chung là sản phẩm) và KHÁC
-  `backend-erd` (mô hình nhúng trong app).
+  ERD nhúng trong app backend (mô hình dữ liệu của riêng service).
 
 ## Phân tầng mã nguồn / transform
 Transform/job/model nằm trong root riêng (mặc định `pipelines/`): `source/ingest` → `transform/model`

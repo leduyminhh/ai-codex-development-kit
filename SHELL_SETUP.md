@@ -8,7 +8,7 @@ plugin và cờ. File hoàn tất nằm trong `completions/`.
 Thêm vào `~/.bashrc`:
 
 ```bash
-source /duong-dan/toi/ai-development-kit/completions/aip.bash
+source /duong-dan/toi/ai-engineering-platform/completions/aip.bash
 ```
 
 Hoặc chép vào thư mục completion hệ thống:
@@ -36,7 +36,7 @@ autoload -Uz compinit && compinit
 ## Cách dùng
 
 ```bash
-aip <Tab>                      # install uninstall build check list update help
+aip <Tab>                      # install uninstall build check list update pack help
 aip install --provider <Tab>   # all claude cursor codex antigravity
 aip install --plugin <Tab>     # all backend frontend oltp-database olap-warehouse
 aip install --provider claude --<Tab>   # --plugin --scope --global --yes ...
@@ -52,6 +52,7 @@ aip install --provider claude --<Tab>   # --plugin --scope --global --yes ...
 | `check` | Kiểm tra đã cài gì ở scope (đọc manifest) |
 | `list` | Liệt kê adapter + plugin |
 | `update` | git pull + build lại + cài lại các install đã ghi |
+| `pack` | Đóng gói skill Cowork ra `build/cowork/<skill>.zip` |
 | `help` | Trợ giúp |
 
 ## Cờ chung
@@ -63,6 +64,7 @@ aip install --provider claude --<Tab>   # --plugin --scope --global --yes ...
 | `--scope <s>` | `project` (mặc định) hoặc `global` |
 | `-g` / `--global` | Rút gọn của `--scope global` |
 | `-y` / `--yes` | Non-interactive (bỏ wizard) |
+| `--as-plugin` | (chỉ `install` + Claude) cài như plugin thật qua CLI `claude` |
 | `--help` | Trợ giúp |
 
 Không có cờ chọn rõ ràng và stdin là TTY → `aip` mở wizard tương tác.

@@ -14,8 +14,8 @@ Pure ESM, **zero runtime dependency**, không có bước build. Node.js 20+.
 ## Bắt đầu nhanh
 
 ```bash
-git clone https://github.com/leduyminhh/ai-development-kit.git
-cd ai-development-kit
+git clone https://github.com/leduyminhh/ai-engineering-platform.git
+cd ai-engineering-platform
 npm install        # không biên dịch gì — chỉ cài dev tooling
 npm test           # mọi suite phải pass
 npm link           # đưa `aip` lên PATH
@@ -73,19 +73,22 @@ Mọi lệnh chạy `node cli/index.mjs`.
 
 ```bash
 aip                 # menu wizard: install | uninstall | build | check
-aip install   --provider all|<p>... --plugin all|<id>... [-g] [--yes]
-aip uninstall [--provider ...] [--plugin ...] [-g] [--yes]
-aip build     --provider all|<p>...
+aip install   --provider all|<p>... --plugin all|<id>... [-g] [--yes] [--as-plugin]
+aip uninstall [--provider ...] [--plugin ...] [-g] [--yes]   # alias: remove
+aip build     --provider all|<p>...   # cờ alias: --target
 aip check     [-g]
 aip update    [-g]        # git pull + build lại + cài lại các install đã ghi
+aip pack                  # đóng gói skill Cowork -> build/cowork/<skill>.zip
 aip list                  # adapter + plugin phát hiện được
 ```
 
 - **Scope**: `project` (mặc định, cwd) hoặc `global` (`-g` / `--scope global`, thư mục home).
 - **Install** ưu tiên symlink (junction trên Windows) + fallback copy, và **cộng dồn** —
   cài thêm plugin sẽ hợp với cái đã có. Đồng thời chèn khối baseline vào file chỉ dẫn của project.
-- **Uninstall** chỉ gỡ path đã track (không đụng target của link), prune thư mục rỗng, và
-  đếm-tham-chiếu khối managed dùng chung.
+- **`--as-plugin`** (chỉ Claude) cài qua CLI `claude` như PLUGIN THẬT (marketplace +
+  namespaced `<id>:<skill>`) thay vì copy phẳng vào `.claude/skills/`; cần có `claude` trên PATH.
+- **Uninstall** (alias `remove`) chỉ gỡ path đã track (không đụng target của link), prune thư mục
+  rỗng, và đếm-tham-chiếu khối managed dùng chung.
 - Provider cài mặc định: `claude`, `cursor`, `codex`. `antigravity` có build nhưng chỉ cài
   khi gọi tường minh (`--provider antigravity`).
 

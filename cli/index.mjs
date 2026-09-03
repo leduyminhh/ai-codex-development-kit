@@ -187,7 +187,6 @@ CLAUDE — CÀI QUA MARKETPLACE (thay cho 'aip install')
     1) /plugin                               panel UI: Marketplaces -> add, Discover -> install
     2) /plugin marketplace add <repo|path>   rồi  /plugin install <plugin>@aip
     3) settings.json: khai báo "extraKnownMarketplaces" + "enabledPlugins" (commit qua git)
-  Chi tiết: 00-HUONG-DAN-SU-DUNG.md (mục 2 — Build & cài).
 
 Manifest '.ai-engineering/manifest.json' (ghi ở gốc scope) cho phép check/uninstall chính xác.`;
 }

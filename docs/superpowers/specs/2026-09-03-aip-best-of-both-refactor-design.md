@@ -1,7 +1,7 @@
 # Thiết kế: Refactor `aip` theo hướng best-of-both (nền kit ngoài + graft riêng)
 
 - Ngày: 2026-09-03
-- Trạng thái: Draft (chờ duyệt)
+- Trạng thái: Đã hiện thực — merged vào `master` ngày 2026-09-03 (PR #22). Ghi lại làm bản thiết kế lịch sử.
 - Phạm vi: Kiến trúc — thay nền engine + content model, thu gọn nội dung, giữ branding hiện tại.
 
 ## 1. Mục tiêu & tiêu chí thành công

@@ -207,7 +207,7 @@ Provider publish `<bc>-api-contract` gồm **DTO + interface `<Bc>Api` (`@HttpEx
 1. **Chỉ module `ordering-infrastructure`** khai `dependency` `com.acme.billing:billing-api-contract` — Maven ép `domain`/`application` KHÔNG thấy contract của billing.
 2. Khai **driven port riêng** ở `ordering-application/port/out` bằng ngôn ngữ domain của ordering (`CustomerCreditPort`, trả VO của ordering) — KHÔNG dùng thẳng `BillingApi` ở lõi.
 3. Ở `ordering-infrastructure/out/billing/`: đăng ký **proxy bean tái dùng interface contract** (Spring Boot 3.x `HttpServiceProxyFactory` + `RestClient`, base-url từ config); `BillingCreditAdapter implements CustomerCreditPort` = **ACL** gọi `BillingApi` rồi **map tay** DTO billing → VO ordering. DTO billing **không rời** adapter này.
-4. Wiring bean ở `bootstrap`. Đổi provider/giao thức chỉ đụng adapter; lõi bất động. (Code shape đầy đủ: recipe `backend-share-contract`.)
+4. Wiring bean ở `bootstrap`. Đổi provider/giao thức chỉ đụng adapter; lõi bất động.
 
 > ArchUnit của consumer nên thêm rule: `..domain..`/`..application..` **KHÔNG** phụ thuộc `com.acme.<provider>..` — chỉ `infrastructure.out.<provider>` được import contract của service khác.
 
@@ -297,14 +297,14 @@ Hợp đồng sinh (mọi stack + mọi kiến trúc):
   KHÔNG mapper command.
 - **`:api-contract` — mặt published, nằm trên nhánh response (Java Hexagonal/CQRS/Onion):** example sinh phần
   contract tối thiểu cho đúng use case — endpoint declaration (`*Api` `@HttpExchange`, mặt published cho
-  service khác gọi — dùng thật khi tích hợp qua recipe `backend-share-contract`) + **response DTO
+  service khác gọi — dùng thật khi tích hợp liên-service) + **response DTO
   published** (`*Response`/`*View`, được web tái dùng ngay trong slice) ở module `:api-contract`. Adapter web **TÁI DÙNG** response DTO của
   `:api-contract` (**KHÔNG** khai lại `*Response`/`*View` trùng tên trong web-api); mapper biên map domain →
   response DTO đó (nhánh Query CQRS: read repository trả thẳng `*View` của api-contract). Chỉ khai DTO response
   RIÊNG ở web khi kênh web thật sự khác shape với contract liên-service. Vậy vertical slice chạm `:api-contract`
   ở nhánh response, KHÔNG để module contract rỗng.
 - **Tối giản, không phình:** một aggregate, một–hai value object, một use case, một driven port + một
-  adapter. KHÔNG sinh nhiều feature — feature nghiệp vụ thật do `backend-implement` viết.
+  adapter. KHÔNG sinh nhiều feature — feature nghiệp vụ thật viết ở bước hiện thực sau.
 - **Giữ ranh giới:** đúng Dependency Rule + quy ước đặt tên của template; `domain`/`application` thuần
   POJO; qua được block ép ranh giới mà template khai (ArchUnit ở Java / import-linter ở Python) và một
   unit test lõi mock port (không cần DB/Spring).

@@ -12,8 +12,8 @@
 - **Phục vụ:** app backend / service khác là CONSUMER đọc-ghi trực tiếp trên database này qua
   schema contract đã công bố.
 - **KHÁC ai:** KHÁC `olap-warehouse` (OLAP — ĐỌC dữ liệu TỪ các nguồn, gồm chính oltp-database, để
-  phân tích; không sở hữu giao dịch vận hành) và KHÁC `backend-erd` (mô hình dữ liệu NHÚNG trong
-  một app, phục vụ repository của riêng service đó — không phải DB dùng chung).
+  phân tích; không sở hữu giao dịch vận hành) và KHÁC ERD nhúng trong một app backend (mô hình dữ
+  liệu của riêng service đó, phục vụ repository nội bộ — không phải DB dùng chung).
 
 ## Phân tầng mã nguồn database
 Schema/migration/DB object nằm trong root riêng (mặc định `db/`): `db/schema/` (DDL nguồn sự
