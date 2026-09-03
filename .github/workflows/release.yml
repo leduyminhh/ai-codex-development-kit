@@ -13,12 +13,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
 
-      - name: Build CLI
-        run: npm run build:cli
-
-      - name: Run tests
-        run: npm test
+      - run: npm ci
+      - run: npm test
+      - run: npm run pack:verify
 
       - name: Create Release
         uses: actions/create-release@v1
@@ -31,9 +30,3 @@ jobs:
             See CHANGELOG.md and MIGRATION.md for details.
           draft: false
           prerelease: false
-
-      - name: Upload distribution
-        uses: actions/upload-artifact@v4
-        with:
-          name: cli-dist
-          path: cli/dist/

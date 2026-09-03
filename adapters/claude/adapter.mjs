@@ -105,7 +105,7 @@ export default {
       files.push(...pluginPrinciplesFiles(p)); // <plugin>-principles skill
       // Claude KHÔNG auto-load skill khác khi gọi 1 skill (khác cursor alwaysApply / codex AGENTS.md).
       // Chèn pointer để agent nạp nguyên tắc nền tảng trước khi thực hiện stage.
-      // Pointer phải đúng cho CẢ HAI đường phân phối: (a) cwckit install dạng skills PHẲNG →
+      // Pointer phải đúng cho CẢ HAI đường phân phối: (a) aip install dạng skills PHẲNG →
       // skill mang tên trần `principles` / `<id>-principles`; (b) cài qua marketplace dạng PLUGIN →
       // skill namespaced `core:principles` / `<id>:<id>-principles`. Nêu cả hai để khớp mọi cách cài.
       const principlesNote =
