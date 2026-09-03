@@ -1,0 +1,10 @@
+[importlinter]
+root_package = myapp
+
+[importlinter:contract:onion-layers]
+name = Onion layers — domain innermost
+type = layers
+layers =
+    myapp.infrastructure
+    myapp.application
+    myapp.domain

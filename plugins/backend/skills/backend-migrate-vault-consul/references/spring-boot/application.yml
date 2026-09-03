@@ -1,0 +1,50 @@
+# application.yml — externalize config qua Consul (config thường) + Vault (secrets).
+# Template dựa trên cấu hình thực tế đang chạy; giá trị kết nối lấy từ biến môi trường (.env).
+# Cơ chế spring.config.import (Spring Boot >= 2.4 / Spring Cloud >= 2020).
+# Khi migrate .properties -> .yaml: APPEND nguyên khối spring.config.import + spring.cloud dưới đây
+# vào application.yml của app (đây là phần cấu hình Consul/Vault, KHÔNG chứa giá trị secret).
+spring:
+  config:
+    # PROD (mặc định): non-optional -> fail-fast nếu thiếu Consul/Vault (không boot lặng lẽ thiếu secret).
+    # DEV không có Consul: đổi thành "optional:consul:" / "optional:vault://" để boot bằng file YAML paste local.
+    import:
+      - "consul:"
+      - "vault://"
+
+  cloud:
+    consul:
+      host: ${CONSUL_HOST}
+      port: ${CONSUL_PORT}
+      token: ${CONSUL_TOKEN}                 # ACL token (nếu Consul bật ACL)
+
+      discovery:
+        enabled: true
+        register: false                      # chỉ discover, KHÔNG tự đăng ký service
+        catalog-services-watch:
+          enabled: true
+
+      config:
+        enabled: true
+        prefixes:
+          - ${CONSUL_PREFIX}                 # KV path gốc: <prefix>/<context>/data
+        default-context: global              # GLOBAL: <prefix>/global/data (mọi app đọc chung)
+        application-name: ${APP_NAME:my-app}  # APP: <prefix>/<app>/data (override global khi trùng key)
+        profile-separator: "-"               # context theo profile: <app>-<profile>
+        format: YAML                         # value tại <context>/data là 1 tài liệu YAML (paste-able)
+        watch:
+          enabled: true
+          delay: 10000                       # ms — theo dõi thay đổi KV để reload động
+
+    vault:
+      uri: ${VAULT_URI}
+      authentication: ${VAULT_AUTH:APPROLE}  # APPROLE (staging/prod) | TOKEN (local dev: VAULT_AUTH=TOKEN)
+      token: ${VAULT_TOKEN:}                 # chỉ dùng khi VAULT_AUTH=TOKEN
+      app-role:
+        role-id: ${VAULT_ROLE_ID}
+        secret-id: ${VAULT_SECRET_ID}
+        app-role-path: ${VAULT_APP_ROLE_PATH:gw}    # auth mount của AppRole (đổi theo tổ chức)
+      kv:
+        enabled: true
+        backend: ${VAULT_BACKEND:dls-hcm}            # KV v2 mount (đổi theo tổ chức)
+        application-name: ${APP_NAME:my-app}         # APP: <backend>/<app>
+        default-context: ${VAULT_DEFAULT_CONTEXT:global}  # GLOBAL: <backend>/global (dùng chung)

@@ -5,6 +5,7 @@
 /node_modules/
 /dist/
 /cli/dist/
+/build/
 .ai-engineering/
 /cli/scripts/flows/
 *.tgz

@@ -1,100 +1,74 @@
-# Shell Completions for aie
+# Shell Completions for aip
 
-Enable tab-completion for the `aie` command in bash, zsh, and other shells.
+Tab-completion cho CLI `aip` (và alias `ai-engineering-platform`): hoàn tất lệnh, provider,
+plugin và cờ. File hoàn tất nằm trong `completions/`.
 
 ## Bash
 
-Add to your `~/.bashrc` or `~/.bash_profile`:
+Thêm vào `~/.bashrc`:
 
 ```bash
-source /path/to/aie-repo/completions/aie.bash
+source /duong-dan/toi/ai-development-kit/completions/aip.bash
 ```
 
-Or install system-wide:
+Hoặc chép vào thư mục completion hệ thống:
 
 ```bash
-sudo cp /path/to/aie-repo/completions/aie.bash /etc/bash_completion.d/aie
+cp completions/aip.bash /etc/bash_completion.d/aip
 ```
 
-Then restart your shell:
-
-```bash
-exec bash
-```
+Mở terminal mới (hoặc `source ~/.bashrc`) để nạp.
 
 ## Zsh
 
-Add to your `~/.zshrc`:
+Đặt `completions/aip.zsh` vào một thư mục trong `$fpath` với tên `_aip`, rồi bật `compinit`.
 
-```bash
-fpath=(/path/to/aie-repo/completions $fpath)
-autoload -U compinit && compinit
+```zsh
+# ví dụ: dùng thư mục completion riêng
+mkdir -p ~/.zsh/completions
+cp completions/aip.zsh ~/.zsh/completions/_aip
+
+# thêm vào ~/.zshrc (trước compinit)
+fpath=(~/.zsh/completions $fpath)
+autoload -Uz compinit && compinit
 ```
 
-Then restart your shell:
+## Cách dùng
 
 ```bash
-exec zsh
+aip <Tab>                      # install uninstall build check list update help
+aip install --provider <Tab>   # all claude cursor codex antigravity
+aip install --plugin <Tab>     # all backend frontend oltp-database olap-warehouse
+aip install --provider claude --<Tab>   # --plugin --scope --global --yes ...
 ```
 
-## Usage
+## Lệnh khả dụng
 
-After setup, press **TAB** to complete:
+| Lệnh | Mô tả |
+|------|-------|
+| `install` | Cài skill/plugin vào project (mặc định) hoặc global |
+| `uninstall` | Gỡ theo provider/plugin/scope |
+| `build` | Dựng đầu ra cho provider vào `build/<provider>/` |
+| `check` | Kiểm tra đã cài gì ở scope (đọc manifest) |
+| `list` | Liệt kê adapter + plugin |
+| `update` | git pull + build lại + cài lại các install đã ghi |
+| `help` | Trợ giúp |
 
-```bash
-# Complete main commands
-aie i<TAB>    # → aie install
-aie ch<TAB>   # → aie check
-aie v<TAB>    # → aie validate
+## Cờ chung
 
-# Complete subcommands
-aie workflow <TAB>  # → list, init, status, run, etc.
-aie plugin <TAB>    # → list
-aie skill <TAB>     # → list
-aie schema <TAB>    # → check
+| Cờ | Ý nghĩa |
+|----|---------|
+| `--provider <p>` / `--target <p>` | Chọn provider (`all` hoặc `claude,cursor,codex,antigravity`) |
+| `--plugin <id>` | Chọn plugin (`all` hoặc danh sách phẩy) |
+| `--scope <s>` | `project` (mặc định) hoặc `global` |
+| `-g` / `--global` | Rút gọn của `--scope global` |
+| `-y` / `--yes` | Non-interactive (bỏ wizard) |
+| `--help` | Trợ giúp |
 
-# Complete flags
-aie install --<TAB> # → --target, --scope, --yes, etc.
-```
+Không có cờ chọn rõ ràng và stdin là TTY → `aip` mở wizard tương tác.
 
-## Available Commands
+## Khắc phục
 
-| Command | Purpose |
-|---------|---------|
-| `init` | Initialize AI Engineering in a project |
-| `install` | Install plugins |
-| `check` | Check installed plugins |
-| `validate` | Validate plugin structure |
-| `doctor` | Run diagnostics |
-| `plugin` | Manage plugins |
-| `skill` | Manage skills |
-| `workflow` | Manage workflows |
-| `schema` | Manage schemas |
-| `migrate` | Migrate legacy projects |
-
-## Global Options
-
-| Option | Purpose |
-|--------|---------|
-| `--target` | Specify provider (codex, claude, cursor, antigravity) |
-| `--scope` | Set scope (project, global) |
-| `-g, --global` | Global scope shorthand |
-| `--dry-run` | Preview changes without applying |
-| `--json` | JSON output format |
-| `--yes` | Non-interactive mode |
-
-## Troubleshooting
-
-**Completions not working?**
-
-- Check the path is correct: `ls /path/to/aie-repo/completions/`
-- Restart your shell after sourcing
-- Verify sourcing in your shell config: `grep aie ~/.bashrc` (bash) or `grep aie ~/.zshrc` (zsh)
-
-**Get more completions?**
-
-Shell completions are updated with new commands. Re-source the completion file after upgrading `aie`:
-
-```bash
-source /path/to/aie-repo/completions/aie.bash
-```
+- Completion không chạy: xác nhận đã `source` đúng file và mở shell mới.
+- Zsh báo "command not found: compdef": thêm `autoload -Uz compinit && compinit` vào `~/.zshrc`.
+- `aip` chưa có trên PATH: chạy `npm link` trong repo, hoặc gọi `node cli/index.mjs`.

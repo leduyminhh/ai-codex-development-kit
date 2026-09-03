@@ -1,51 +1,27 @@
 # Docs
 
-`docs/` chứa tài liệu repository ổn định: hồ sơ migration, quyết định thiết kế,
-lý do cleanup và ghi chú triển khai cần tồn tại lâu hơn một task hoặc PR.
+`docs/` chứa tài liệu ổn định của repo, cần tồn tại lâu hơn một task hay PR. KHÔNG
+dùng làm nơi đổ report sinh tự động.
 
-Không dùng thư mục này như nơi đổ report sinh tự động. Chỉ đưa report vào
-`docs/` khi nó trở thành tài liệu tham chiếu được bảo trì của dự án.
+> English: xem [README.md](README.md).
 
-## Cấu Trúc
+## Cấu trúc
 
-| Thư mục | Sở hữu nội dung gì | Sửa khi nào |
-| --- | --- | --- |
-| `migration/` | Đặc tả migration, ngữ cảnh triển khai lịch sử và completion checklist. | Khi kế hoạch migration, cấu trúc canonical, danh sách deprecated path hoặc acceptance criteria thay đổi. |
-| `superpowers/plans/` | Kế hoạch triển khai được tạo trong quá trình phát triển có cấu trúc. | Khi một plan được bảo trì cần còn truy vết sau task. |
-| `superpowers/specs/` | Design spec được tạo trong quá trình phát triển có cấu trúc. | Khi quyết định thiết kế hoặc ranh giới triển khai cần còn truy vết. |
+| Thư mục | Vai trò |
+| --- | --- |
+| `superpowers/specs/` | Bản thiết kế từ quá trình phát triển có cấu trúc — quyết định thiết kế và ranh giới hiện thực cần truy vết lâu dài. |
 
-## Tài Liệu Migration
+## Thuộc về đây
 
-- `migration/migrate-existing-source-to-plugins-platform.md`: target migration
-  hiện tại theo hướng plugin-first cho AI IDE plugin và artifact sinh bởi
-  adapter.
-- `migration/implementation-spec-v1.1.md`: thiết kế migration MCP-first lịch sử,
-  được giữ lại làm ngữ cảnh cho các quyết định cấu trúc trước đó.
-- `migration/completion-checklist.md`: checklist lịch sử cho acceptance criteria
-  của đợt migration trước.
+- Tài liệu kiến trúc / thiết kế giải thích vì sao repo có hình hài hiện tại.
+- Ghi chú bàn giao lâu dài cho maintainer sau này.
 
-## Nội Dung Nên Đặt Ở Đây
+## Không thuộc về đây
 
-- Tài liệu kiến trúc hoặc migration giải thích vì sao cấu trúc repository tồn
-  tại.
-- Ghi chú handoff bền vững cho maintainer sau này.
-- Quyết định cleanup cần truy vết sau khi legacy path bị xóa.
-- Tài liệu xuyên package không thuộc riêng một plugin.
+- Output lệnh tạm, report quét, hay ghi chú debug cục bộ.
+- Tài liệu dùng của riêng plugin — để trong thư mục plugin sở hữu.
 
-## Nội Dung Không Nên Đặt Ở Đây
+## Checklist thay đổi
 
-- Output lệnh tạm thời, scan report hoặc ghi chú debug cục bộ.
-- Tài liệu usage do plugin sở hữu. Ưu tiên tài liệu thật sự được bảo trì trong
-  plugin sở hữu; không tạo README placeholder chỉ để giữ folder.
-- Tài liệu registry MCP provider; đặt trong `providers/README.md` hoặc
-  `providers/mcp/`.
-
-## Checklist Thay Đổi
-
-- Giữ mọi nhận định truy vết được tới code, config, test, migration spec hoặc
-  quyết định rõ ràng.
-- Giữ ngữ cảnh lịch sử khi cập nhật tài liệu migration; không âm thầm viết lại
-  quyết định cũ như thể chúng chưa từng thay đổi.
-- Cập nhật `README.md` tiếng Anh trước, rồi đồng bộ `README_VI.md`.
-- Chạy `npm run validate` sau thay đổi tài liệu ảnh hưởng tới cấu trúc, command
-  id, MCP tool id hoặc acceptance rule của migration.
+- Giữ mọi khẳng định truy vết được về code, config, test, hoặc quyết định tường minh.
+- Cập nhật `README.md` (EN) trước, rồi đồng bộ `README_VI.md`.

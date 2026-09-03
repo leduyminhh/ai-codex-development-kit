@@ -1,0 +1,13 @@
+{
+  "_comment": "Danh sách skill đóng gói cho Cowork (build/cowork/<skill>.zip → Customize → Skills → Upload). Thêm skill cho Cowork = thêm 1 dòng '<plugin>:<skill-id>'. Bỏ key 'skills' hoặc để rỗng -> tự suy ra các skill runsIn:plan (init/analysis) + core:principles.",
+  "skills": [
+    "core:principles",
+    "core:git-workflow",
+    "backend:backend-init",
+    "backend:backend-migrate-architecture",
+    "backend:backend-migrate-vault-consul",
+    "frontend:frontend-init",
+    "oltp-database:oltp-database-init",
+    "olap-warehouse:olap-warehouse-init"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "frontend",
+  "name": "Frontend Cowork→Code",
+  "description": "Workflow frontend Cowork → Code, contract-first theo UI/Component contract: 5 giai đoạn frontend-init → frontend-analysis → frontend-ui-contract → frontend-state-model → frontend-implement, kèm recipe on-demand frontend-validate (cổng lint/type-check/test/build + kiểm drift ui-contract↔code). frontend-init ship skeleton React hạ tầng-only chạy được với bộ default có-thể-gỡ (react-router + React Query + react-hook-form/zod), API client đủ GET/mutation, error boundary, i18n và alias @/. Chốt giao diện component (props/events/slots) + đầy đủ trạng thái UI và data contract khớp backend, kèm UI mock/fixtures TRƯỚC; rồi state/data-fetching; rồi mới nối logic và gọi API thật.",
+  "version": "1.1.1"
+}

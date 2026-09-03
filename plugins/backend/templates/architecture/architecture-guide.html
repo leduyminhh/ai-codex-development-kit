@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kiến trúc hướng miền — Sổ tay onboarding dev Java</title>
+<style>
+  :root {
+    --ink: #16130d;
+    --paper: #efe9db;
+    --paper-2: #e5ddc9;
+    --line: #c9bfa6;
+    --accent: #1f5f4a;      /* deep pine */
+    --accent-2: #b8461e;    /* rust */
+    --core: #d4a017;        /* domain gold */
+    --muted: #6b6250;
+    --code-bg: #201d16;
+    --code-ink: #e9e1cd;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    line-height: 1.65; -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--core); color: var(--ink); }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+  .grid { display: grid; grid-template-columns: 252px 1fr; gap: 56px; }
+
+  aside {
+    position: sticky; top: 0; align-self: start; height: 100vh;
+    padding: 36px 0; border-right: 1px solid var(--line); overflow-y: auto;
+  }
+  aside .brand {
+    font-family: "Courier New", monospace; font-size: 12px; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 4px;
+  }
+  aside h1 { font-size: 21px; line-height: 1.2; font-weight: 600; margin-bottom: 24px; padding-right: 18px; }
+  nav a {
+    display: block; text-decoration: none; color: var(--muted);
+    font-family: "Courier New", monospace; font-size: 12px; letter-spacing: 0.2px;
+    padding: 4px 0 4px 12px; border-left: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  nav a:hover { color: var(--ink); }
+  nav a.section { color: var(--ink); font-weight: 700; margin-top: 16px; }
+  nav a.sub { padding-left: 24px; font-size: 11.5px; }
+  nav a.active { color: var(--accent); border-color: var(--accent); }
+
+  main { padding: 54px 0 120px; min-width: 0; }
+
+  .hero { margin-bottom: 64px; }
+  .hero .eyebrow {
+    font-family: "Courier New", monospace; font-size: 12px; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--accent-2); margin-bottom: 16px;
+  }
+  .hero h2 { font-size: clamp(32px, 5vw, 54px); line-height: 1.03; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 20px; }
+  .hero p { font-size: 18px; max-width: 62ch; color: #37311f; }
+
+  section { margin-bottom: 60px; scroll-margin-top: 24px; }
+  h3 {
+    font-size: 14px; font-family: "Courier New", monospace; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--accent);
+    border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 22px;
+  }
+  h4 { font-size: 24px; font-weight: 600; margin: 32px 0 12px; letter-spacing: -0.01em; }
+  h5 { font-size: 16px; font-weight: 700; margin: 20px 0 8px; }
+  p { margin-bottom: 14px; max-width: 74ch; }
+  ul, ol { margin: 0 0 16px 22px; max-width: 72ch; }
+  li { margin-bottom: 7px; }
+  strong { color: var(--accent-2); font-weight: 700; }
+  em { color: var(--muted); }
+  code {
+    font-family: "Courier New", monospace; font-size: 0.87em; background: var(--paper-2);
+    padding: 1px 6px; border-radius: 3px; border: 1px solid var(--line);
+  }
+  .lead { font-size: 17px; color: #37311f; }
+
+  .rings { display: block; margin: 8px auto 4px; max-width: 440px; }
+  .ring-label { font-family: "Courier New", monospace; font-size: 12px; fill: var(--ink); }
+  .ring-flow { text-align: center; font-family: "Courier New", monospace; font-size: 12px; color: var(--muted); letter-spacing: 1px; margin-bottom: 8px; }
+
+  .card {
+    background: var(--paper-2); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    padding: 16px 20px; margin: 20px 0; border-radius: 2px;
+  }
+  .card.warn { border-left-color: var(--accent-2); }
+  .card.core { border-left-color: var(--core); }
+  .card .tag {
+    font-family: "Courier New", monospace; font-size: 11px; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 6px;
+  }
+  .card.warn .tag { color: var(--accent-2); }
+  .card.core .tag { color: #a67c00; }
+  .card p:last-child { margin-bottom: 0; }
+
+  pre {
+    background: var(--code-bg); color: var(--code-ink); padding: 18px 20px; border-radius: 4px;
+    overflow-x: auto; font-family: "Courier New", monospace; font-size: 12.5px; line-height: 1.55;
+    margin: 16px 0; border: 1px solid #000;
+  }
+  pre .c { color: #8a9a7b; } pre .k { color: #d4a017; } pre .s { color: #d98b6b; }
+
+  .tablewrap { overflow-x: auto; margin: 20px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 13px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: "Courier New", monospace; font-size: 11.5px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--accent); border-bottom: 2px solid var(--accent); }
+  tbody tr:hover { background: var(--paper-2); }
+  td:first-child { font-weight: 700; }
+
+  .check { list-style: none; margin-left: 0; }
+  .check li { position: relative; padding-left: 28px; margin-bottom: 9px; }
+  .check li::before { content: "▸"; position: absolute; left: 4px; top: 0; color: var(--accent); font-weight: 700; }
+
+  .tabs { margin: 16px 0; }
+  .tab-btns { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 2px solid var(--line); margin-bottom: 0; }
+  .tab-btn {
+    font-family: "Courier New", monospace; font-size: 12px; letter-spacing: 0.5px;
+    background: transparent; border: 1px solid var(--line); border-bottom: none;
+    padding: 8px 14px; cursor: pointer; color: var(--muted); border-radius: 3px 3px 0 0;
+    margin-bottom: -2px;
+  }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn.active { color: var(--accent); border-color: var(--accent); border-bottom: 2px solid var(--paper); background: var(--paper); font-weight: 700; }
+  .tab-panel { display: none; padding-top: 18px; }
+  .tab-panel.active { display: block; }
+
+  .pill { display: inline-block; font-family: "Courier New", monospace; font-size: 11px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper-2); margin: 0 4px 4px 0; }
+  .pill.on { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+
+  .footer { border-top: 1px solid var(--line); padding-top: 24px; margin-top: 40px; font-family: "Courier New", monospace; font-size: 12px; color: var(--muted); }
+
+  @media (max-width: 860px) {
+    .grid { grid-template-columns: 1fr; gap: 0; }
+    aside { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); padding: 24px 0; }
+    nav { columns: 2; }
+    main { padding: 36px 0 80px; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="grid">
+  <aside>
+    <div class="brand">Onboarding · Java · Final</div>
+    <h1>Kiến trúc hướng miền</h1>
+    <nav id="nav">
+      <a href="#intro">Mở đầu</a>
+      <a href="#standard" class="section">Chuẩn &amp; bối cảnh</a>
+      <a href="#onion" class="sub">Onion</a>
+      <a href="#clean" class="sub">Clean</a>
+      <a href="#hex" class="sub">Hexagonal</a>
+      <a href="#ddd" class="sub">DDD</a>
+      <a href="#tdd" class="sub">TDD</a>
+      <a href="#compare" class="section">So sánh chi tiết</a>
+      <a href="#choose" class="section">Chọn cái nào</a>
+      <a href="#review" class="section">Checklist review PR</a>
+      <a href="#templates" class="section">Templates</a>
+      <a href="#t-hexddd" class="sub">Hexagonal + DDD</a>
+      <a href="#t-cqrs" class="sub">Clean + CQRS</a>
+      <a href="#t-onionddd" class="sub">Onion + DDD</a>
+      <a href="#multiservice" class="section">Nhiều service</a>
+    </nav>
+  </aside>
+  <main>
+    <div class="hero" id="intro">
+      <div class="eyebrow">Sổ tay dev Java · Kiến trúc phần mềm</div>
+      <h2>Ba cách sắp xếp cùng một ý tưởng</h2>
+      <p class="lead">Onion, Clean và Hexagonal đều nói một điều: <strong>logic nghiệp vụ nằm ở trung tâm và không phụ thuộc vào database, framework hay UI</strong>. Chúng khác nhau ở cách vẽ ranh giới và cách gọi tên. DDD làm giàu phần lõi; TDD là cách bạn xây nó. Tài liệu này gộp toàn bộ: chuẩn &amp; bối cảnh, so sánh, cách chọn, checklist review, và ba template chạy được (kèm module api-contract + bootstrap).</p>
+    </div>
+
+    <section id="standard">
+      <h3>Chuẩn &amp; bối cảnh chung</h3>
+      <p>Tất cả xoay quanh một quy tắc duy nhất — <strong>Dependency Rule</strong>: mã nguồn phụ thuộc chỉ được trỏ <em>vào trong</em>, hướng về nghiệp vụ. Tầng trong không bao giờ biết gì về tầng ngoài. Cụ thể trong Java: package <code>domain</code> không được <code>import org.springframework.*</code> hay <code>jakarta.persistence.*</code>. Nếu domain cần lưu dữ liệu, nó <em>khai báo</em> một interface và để tầng ngoài hiện thực (Dependency Inversion).</p>
+      <div class="card core">
+        <span class="tag">Quy tắc vàng</span>
+        <p>Đổi database, đổi giao thức, đổi framework — không được chạm vào một dòng logic nghiệp vụ nào. Đó là thước đo duy nhất để biết bạn có làm đúng cả ba kiến trúc hay không.</p>
+      </div>
+
+      <h4 id="onion">Onion Architecture</h4>
+      <p>Của Jeffrey Palermo (2008). Hệ thống là các vòng đồng tâm, <strong>Domain Model làm lõi tuyệt đối</strong>. Nét đặc trưng: tách rõ <em>Domain Services</em> (nghiệp vụ thuần) khỏi <em>Application Services</em> (điều phối). Interface repository/gateway khai báo ở vòng trong, hiện thực ở Infrastructure ngoài cùng.</p>
+      <div class="ring-flow">ngoài → trong · phụ thuộc luôn hướng vào tâm</div>
+      <svg class="rings" viewBox="0 0 400 250" role="img" aria-label="Vòng đồng tâm Onion">
+        <ellipse cx="200" cy="125" rx="195" ry="120" fill="#e5ddc9" stroke="#c9bfa6"/>
+        <ellipse cx="200" cy="125" rx="150" ry="92" fill="#dcd3ba" stroke="#c9bfa6"/>
+        <ellipse cx="200" cy="125" rx="100" ry="62" fill="#d0c5a6" stroke="#c9bfa6"/>
+        <ellipse cx="200" cy="125" rx="52" ry="34" fill="#d4a017" stroke="#a67c00"/>
+        <text class="ring-label" x="200" y="20" text-anchor="middle">Infrastructure / UI</text>
+        <text class="ring-label" x="200" y="52" text-anchor="middle">Application Services</text>
+        <text class="ring-label" x="200" y="82" text-anchor="middle">Domain Services</text>
+        <text class="ring-label" x="200" y="128" text-anchor="middle" style="font-weight:700">Domain Model</text>
+      </svg>
+
+      <h4 id="clean">Clean Architecture</h4>
+      <p>Của Robert C. Martin (2012). Tổng quát hoá Onion, Hexagonal và vài biến thể thành các vòng: <em>Entities</em> (quy tắc nghiệp vụ cốt lõi) → <em>Use Cases</em> (luồng nghiệp vụ của ứng dụng) → <em>Interface Adapters</em> (controller, presenter, gateway) → <em>Frameworks &amp; Drivers</em>. Điểm mạnh: tầng use case rõ ràng, dễ làm khuôn mẫu chung cho cả team.</p>
+
+      <h4 id="hex">Hexagonal Architecture (Ports &amp; Adapters)</h4>
+      <p>Của Alistair Cockburn. Ứng dụng ở giữa; quanh nó là các <strong>port</strong> (interface), mỗi port có một hay nhiều <strong>adapter</strong> cắm vào. Hai loại port: <em>driving/primary</em> (thế giới gọi vào — REST, CLI, consumer) và <em>driven/secondary</em> (lõi gọi ra — DB, email, payment). Mạnh nhất khi có nhiều kênh vào/ra.</p>
+      <svg class="rings" viewBox="0 0 400 220" role="img" aria-label="Lục giác Ports và Adapters">
+        <polygon points="130,30 270,30 340,110 270,190 130,190 60,110" fill="#d4a017" stroke="#a67c00" stroke-width="2"/>
+        <text class="ring-label" x="200" y="105" text-anchor="middle" style="font-weight:700">Application</text>
+        <text class="ring-label" x="200" y="123" text-anchor="middle" style="font-weight:700">Core</text>
+        <text class="ring-label" x="42" y="105" text-anchor="end" fill="#1f5f4a">REST →</text>
+        <text class="ring-label" x="42" y="123" text-anchor="end" fill="#1f5f4a">CLI →</text>
+        <text class="ring-label" x="360" y="102" text-anchor="start" fill="#b8461e">→ DB</text>
+        <text class="ring-label" x="360" y="120" text-anchor="start" fill="#b8461e">→ Email</text>
+        <text class="ring-label" x="130" y="16" text-anchor="middle">driving</text>
+        <text class="ring-label" x="270" y="212" text-anchor="middle">driven</text>
+      </svg>
+
+      <h4 id="ddd">Domain-Driven Design (DDD)</h4>
+      <p>DDD không phải kiến trúc phân tầng — nó là cách <em>mô hình hoá lõi</em>, ghép được vào cả ba kiến trúc trên. Các tactical pattern chính:</p>
+      <ul>
+        <li><strong>Aggregate Root</strong> — cụm đối tượng xử lý như một khối; root là cửa ngõ duy nhất, bảo vệ mọi invariant. Sửa entity con phải qua root.</li>
+        <li><strong>Entity</strong> có định danh và vòng đời; <strong>Value Object</strong> bất biến, so sánh theo giá trị (dùng <code>record</code>).</li>
+        <li><strong>Domain Event</strong> — điều nghiệp vụ đã xảy ra; đồng bộ giữa các aggregate qua event.</li>
+        <li><strong>Domain Service</strong> — logic liên nhiều đối tượng; <strong>Repository</strong> theo aggregate; <strong>Factory</strong> dựng aggregate phức tạp.</li>
+        <li><strong>Bounded Context</strong> — ranh giới nơi một mô hình &amp; ngôn ngữ (Ubiquitous Language) có hiệu lực. Mỗi context là một module.</li>
+      </ul>
+      <div class="card">
+        <span class="tag">Nguyên tắc aggregate</span>
+        <p>Một transaction nên chỉ sửa <em>một</em> aggregate; tham chiếu aggregate khác bằng định danh (VO id), không giữ con trỏ trực tiếp. Điều này giữ aggregate nhỏ và giao dịch gọn.</p>
+      </div>
+
+      <h4 id="tdd">Test-Driven Development (TDD)</h4>
+      <p>TDD là cách xây, không phải cách xếp. Nó ăn khớp tự nhiên với ba kiến trúc trên vì lõi đã tách khỏi hạ tầng: bạn test được nghiệp vụ mà không cần bật Spring/DB. Vòng lặp <strong>Red → Green → Refactor</strong>: viết test đỏ trước, code cho xanh, rồi dọn dẹp.</p>
+      <ul>
+        <li><strong>Domain/Use case</strong> → unit test thuần, mock các port. Nhanh, nhiều, chạy mỗi lần lưu file.</li>
+        <li><strong>Adapter</strong> → integration test (JPA với H2/Testcontainers, web với MockMvc).</li>
+        <li><strong>Contract giữa service</strong> → consumer-driven contract test (Spring Cloud Contract).</li>
+      </ul>
+      <p>Kim tự tháp test: nhiều unit test ở lõi (rẻ, nhanh), ít integration test ở adapter, rất ít end-to-end. Kiến trúc hướng miền làm đáy kim tự tháp rộng ra vì lõi test được độc lập.</p>
+    </section>
+
+    <section id="compare">
+      <h3>So sánh chi tiết</h3>
+      <div class="tablewrap">
+      <table>
+        <thead><tr><th>Tiêu chí</th><th>Onion</th><th>Clean</th><th>Hexagonal</th></tr></thead>
+        <tbody>
+          <tr><td>Hình ẩn dụ</td><td>Củ hành đồng tâm</td><td>Vòng tròn đồng tâm</td><td>Lục giác + cổng</td></tr>
+          <tr><td>Tác giả / năm</td><td>Palermo · 2008</td><td>Martin · 2012</td><td>Cockburn · ~2005</td></tr>
+          <tr><td>Trọng tâm</td><td>Domain model làm lõi tuyệt đối</td><td>Tầng use case rõ ràng</td><td>Cô lập lõi khỏi mọi I/O</td></tr>
+          <tr><td>Khái niệm đặc trưng</td><td>Domain Service vs Application Service</td><td>Entities / Use Cases / Adapters</td><td>Port &amp; Adapter, driving/driven</td></tr>
+          <tr><td>Vị trí interface hạ tầng</td><td>Khai báo ở vòng trong</td><td>Ở ranh giới use case</td><td>Là driven port (outbound)</td></tr>
+          <tr><td>Số kênh vào/ra</td><td>Không nhấn mạnh</td><td>Vừa phải</td><td>Nhấn mạnh — nhiều adapter</td></tr>
+          <tr><td>Mạnh nhất khi</td><td>Domain phức tạp, nhiều quy tắc</td><td>Cần khung tổng quát có tầng</td><td>Nhiều REST/queue/cron/CLI cùng lõi</td></tr>
+          <tr><td>Rủi ro dễ mắc</td><td>Lẫn Domain vs Application Service</td><td>Tầng adapter phình to</td><td>Bùng nổ số port/adapter nhỏ</td></tr>
+          <tr><td>Điểm chung</td><td colspan="3">Dependency Rule · đảo ngược phụ thuộc · domain không biết hạ tầng · lõi test được không cần DB</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="card">
+        <span class="tag">Sự thật cần nhớ</span>
+        <p>Ba cái này <em>không loại trừ nhau</em>. Clean thực chất tổng quát hoá hai cái kia. Trên thực tế người ta lấy port/adapter của Hexagonal để đặt ranh giới, tổ chức nội bộ theo tactical pattern DDD, và gọi tên tầng theo Clean. Đừng tranh cãi "cái nào đúng" — chúng là các cách vẽ cùng một nguyên lý.</p>
+      </div>
+    </section>
+
+    <section id="choose">
+      <h3>Chọn cái nào cho dự án?</h3>
+      <ul>
+        <li><strong>App CRUD nhỏ, đội ít người, tải nhẹ</strong> → layered thường là đủ. Cả DDD lẫn ba kiến trúc trên đều là over-engineer ở quy mô này.</li>
+        <li><strong>Domain nhiều quy tắc, ít kênh I/O</strong> → <em>Onion + DDD</em>: nhấn mạnh domain model, phân tầng tường minh.</li>
+        <li><strong>Nhiều đầu vào/ra</strong> (REST + queue + cron + CLI cùng một lõi) → <em>Hexagonal + DDD</em>: ngôn ngữ port/adapter gọn nhất.</li>
+        <li><strong>Muốn khuôn mẫu tổng quát để cả team theo</strong> → <em>Clean</em> với tầng use case đặt tên rõ.</li>
+        <li><strong>Đọc/ghi lệch nặng, read model khác hẳn write model</strong> → thêm <em>CQRS</em> lên trên Hexagonal/Clean.</li>
+        <li><strong>Cần audit/replay trạng thái đầy đủ</strong> → cân nhắc <em>Event Sourcing</em> (nặng đô, chỉ khi thật cần).</li>
+      </ul>
+      <div class="card warn">
+        <span class="tag">Cảnh báo</span>
+        <p>Chọn kiến trúc phức tạp hơn nhu cầu là cái bẫy phổ biến nhất. Bắt đầu bằng thứ đơn giản nhất đáp ứng được, nâng cấp khi có tín hiệu thật (domain phình, nhiều kênh I/O, đọc/ghi lệch). Kiến trúc là để phù hợp, không phải để "đúng".</p>
+      </div>
+    </section>
+
+    <section id="review">
+      <h3>Checklist khi review PR</h3>
+      <p>Dán vào phần mô tả review. Một mục fail nghĩa là ranh giới kiến trúc đang bị rò.</p>
+      <h5>Ranh giới &amp; phụ thuộc</h5>
+      <ul class="check">
+        <li>Package <code>domain</code> có <code>import org.springframework.*</code>, <code>jakarta.persistence.*</code>, hay JDBC? → phải là <strong>không</strong>.</li>
+        <li>Mũi tên phụ thuộc luôn hướng vào trong — không vòng trong nào biết tên class ở vòng ngoài?</li>
+        <li>Repository/gateway là <strong>interface</strong> ở tầng trong, hiện thực (<code>@Repository</code>/<code>@Component</code>) ở tầng ngoài?</li>
+        <li>Đổi một adapter (DB, mail, HTTP client) có buộc sửa file trong <code>domain</code> không? → phải là <strong>không</strong>.</li>
+      </ul>
+      <h5>DDD</h5>
+      <ul class="check">
+        <li>Mọi thay đổi bên trong aggregate đi qua <strong>Aggregate Root</strong>; không sửa entity con từ ngoài?</li>
+        <li>Tham chiếu aggregate khác bằng <strong>định danh</strong> (VO id), không giữ con trỏ trực tiếp?</li>
+        <li>Một transaction chỉ sửa <strong>một aggregate</strong>; đồng bộ phần còn lại qua domain event?</li>
+        <li>Entity tự bảo vệ trạng thái hợp lệ (không có setter công khai tuỳ tiện)?</li>
+        <li>Đặt tên theo <strong>Ubiquitous Language</strong>, không theo thuật ngữ kỹ thuật?</li>
+      </ul>
+      <h5>Application &amp; DI</h5>
+      <ul class="check">
+        <li>Use case/service nhận phụ thuộc qua <strong>constructor injection</strong> (không <code>@Autowired</code> field, không tự <code>new</code> class hạ tầng)?</li>
+        <li>Application service chỉ điều phối, <strong>không chứa quy tắc nghiệp vụ</strong>?</li>
+        <li>DTO của web/contract không rò vào domain (adapter chịu trách nhiệm map)?</li>
+      </ul>
+      <h5>Test (TDD)</h5>
+      <ul class="check">
+        <li>Có unit test cho use case chạy được <strong>không cần Spring context / DB</strong>?</li>
+        <li>Adapter có integration test riêng (JPA/web) không?</li>
+        <li>Contract giữa service có test (consumer-driven) khi có tích hợp không?</li>
+      </ul>
+    </section>
+
+    <section id="templates">
+      <h3>Templates — cấu trúc multi-module</h3>
+      <p>Các template dùng chung một cách chia module Maven, làm rõ ranh giới bằng chính trình biên dịch. <strong>Onion + DDD</strong> giữ <strong>5 module</strong> (web controller nằm trong <code>:infrastructure</code>); <strong>Hexagonal + DDD</strong> và <strong>Clean + CQRS</strong> tách adapter web vào ra module riêng <code>:web-api</code> thành <strong>6 module</strong>:</p>
+      <ul>
+        <li><code>:domain</code> + <code>:application</code> — lõi POJO thuần, <strong>không</strong> khai báo dependency tới Spring.</li>
+        <li><code>:web-api</code> — <strong>driving/inbound adapter (web)</strong>, module riêng (package <code>webapi</code>): controller + DTO kênh web + MapStruct <code>*DtoMapper</code>. <strong>Chỉ Hexagonal/CQRS</strong>; <strong>KHÔNG</strong> phụ thuộc <code>:infrastructure</code> nên Maven ép inbound↮outbound. (Onion: web controller nằm trong <code>:infrastructure</code>.)</li>
+        <li><code>:infrastructure</code> — adapter RA/driven (JPA, HTTP client, messaging) hiện thực các port của lõi. Với Hexagonal/CQRS <strong>không còn</strong> web controller (đã sang <code>:web-api</code>).</li>
+        <li><code>:api-contract</code> — DTO + khai báo endpoint mà service khác dùng để gọi. Chỉ hợp đồng, không logic, không domain.</li>
+        <li><code>:bootstrap</code> — module khởi động: chứa <code>main()</code>, <code>@SpringBootApplication</code>, cấu hình, lắp ráp bean. Là module duy nhất "thấy" tất cả.</li>
+      </ul>
+      <div class="card core">
+        <span class="tag">Vì sao tách :bootstrap và :api-contract</span>
+        <p><strong>:bootstrap</strong> giữ Spring và cấu hình ra khỏi lõi — <code>domain</code>/<code>application</code> không cần biết Spring tồn tại, trình biên dịch <em>ép</em> điều đó. <strong>:api-contract</strong> là hợp đồng chia sẻ được (service khác phụ thuộc vào nó để gọi bạn), tách hẳn khỏi domain để không service nào phụ thuộc vào aggregate nội bộ của bạn.</p>
+      </div>
+
+      <div class="tabs">
+        <div class="tab-btns">
+          <button class="tab-btn active">Hexagonal + DDD</button>
+          <button class="tab-btn">Clean + CQRS</button>
+          <button class="tab-btn">Onion + DDD</button>
+        </div>
+
+        <!-- ============ TAB 1: HEXAGONAL + DDD ============ -->
+        <div class="tab-panel active" id="t-hexddd">
+          <h4>Hexagonal + DDD</h4>
+          <p>Ports &amp; Adapters bọc ngoài, tactical pattern DDD tổ chức lõi. Điểm khởi đầu an toàn cho ứng dụng nghiệp vụ vừa–phức tạp.</p>
+          <pre><span class="c">ordering/                              # 1 Bounded Context</span>
+  <span class="k">api-contract/</span>                        <span class="c"># hợp đồng — service khác gọi qua đây</span>
+    OrderResponse.java                 <span class="c">#   DTO phẳng, ổn định</span>
+    PlaceOrderRequest.java
+    OrderApi.java                      <span class="c">#   @HttpExchange / khai báo endpoint</span>
+  <span class="k">domain/</span>                             <span class="c"># LÕI — POJO thuần, KHÔNG Spring/JPA</span>
+    model/order/Order.java             <span class="c">#   AGGREGATE ROOT</span>
+    model/order/{OrderLine,Money,OrderId}.java   <span class="c"># entity con + VO</span>
+    event/OrderPlacedEvent.java        <span class="c">#   DOMAIN EVENT</span>
+    service/PricingService.java        <span class="c">#   DOMAIN SERVICE</span>
+  <span class="k">application/</span>                        <span class="c"># điều phối use case</span>
+    port/in/PlaceOrderUseCase.java     <span class="c">#   DRIVING port</span>
+    port/out/{SaveOrderPort,NotificationPort,CustomerCreditPort}.java  <span class="c"># DRIVEN port</span>
+    service/PlaceOrderService.java
+  <span class="k">web-api/</span>                            <span class="c"># DRIVING adapter (web) — MODULE RIÊNG (package webapi)</span>
+    order/OrderController.java         <span class="c">#   @RestController; delegate mapper → gọi port/in</span>
+    order/dto/PlaceOrderRequest.java   <span class="c"># request kênh web (response tái dùng OrderResponse của api-contract)</span>
+    order/mapper/OrderDtoMapper.java   <span class="c">#   MapStruct: request → command; domain → OrderResponse (api-contract)</span>
+  <span class="k">infrastructure/</span>                     <span class="c"># adapter RA/driven — CHỈ out/ (không còn web controller)</span>
+    out/persistence/OrderPersistenceAdapter.java
+    out/billing/BillingCreditAdapter.java   <span class="c"># Feign/HTTP adapter = ACL</span>
+  <span class="k">bootstrap/</span>                          <span class="c"># main(), @SpringBootApplication, config</span>
+    OrdersApplication.java
+    config/BeanConfig.java</pre>
+          <h5>Aggregate root — nơi giữ quy tắc nghiệp vụ</h5>
+          <pre><span class="k">public class</span> <span class="s">Order</span> {                              <span class="c">// AGGREGATE ROOT</span>
+    <span class="k">private final</span> <span class="s">OrderId</span> id;
+    <span class="k">private final</span> <span class="s">CustomerId</span> customerId;             <span class="c">// tham chiếu aggregate khác BẰNG ID</span>
+    <span class="k">private final</span> <span class="s">List</span>&lt;<span class="s">OrderLine</span>&gt; lines;
+    <span class="k">private</span> <span class="s">OrderStatus</span> status;
+    <span class="k">private final</span> <span class="s">List</span>&lt;<span class="s">DomainEvent</span>&gt; events = <span class="k">new</span> <span class="s">ArrayList</span>&lt;&gt;();
+
+    <span class="k">public static</span> <span class="s">Order</span> create(<span class="s">CustomerId</span> c, <span class="s">List</span>&lt;<span class="s">OrderLine</span>&gt; lines) {
+        <span class="k">if</span> (lines.isEmpty()) <span class="k">throw new</span> <span class="s">IllegalArgumentException</span>(<span class="s">"Đơn phải có ít nhất 1 dòng"</span>);
+        <span class="c">/* ... trả về Order ở trạng thái DRAFT */</span>
+    }
+    <span class="k">public void</span> place() {                             <span class="c">// hành vi + phát event</span>
+        <span class="k">if</span> (status != <span class="s">OrderStatus</span>.DRAFT)
+            <span class="k">throw new</span> <span class="s">IllegalStateException</span>(<span class="s">"Chỉ đơn DRAFT mới được đặt"</span>);
+        <span class="k">this</span>.status = <span class="s">OrderStatus</span>.PLACED;
+        events.add(<span class="s">OrderPlacedEvent</span>.of(id));
+    }
+}</pre>
+          <h5>Port + adapter — thêm service ngoài chỉ là thêm 1 driven port</h5>
+          <pre><span class="c">// application/port/out — LÕI khai báo, dùng VO của domain</span>
+<span class="k">public interface</span> <span class="s">CustomerCreditPort</span> {
+    <span class="s">CreditLimit</span> creditLimitOf(<span class="s">CustomerId</span> id);
+}
+
+<span class="c">// infrastructure/out/billing — adapter = Anti-Corruption Layer</span>
+<span class="k">@Component</span>
+<span class="k">public class</span> <span class="s">BillingCreditAdapter</span> <span class="k">implements</span> <span class="s">CustomerCreditPort</span> {
+    <span class="k">private final</span> <span class="s">BillingApi</span> billingApi;               <span class="c">// từ billing/api-contract</span>
+    <span class="k">public</span> <span class="s">CreditLimit</span> creditLimitOf(<span class="s">CustomerId</span> id) {
+        <span class="s">CreditResponse</span> dto = billingApi.getCredit(id.value().toString());
+        <span class="k">return new</span> <span class="s">CreditLimit</span>(<span class="s">Money</span>.of(dto.amount(), dto.currency())); <span class="c">// DTO -> VO</span>
+    }
+}</pre>
+          <h5>Test — mock port, không cần Spring/DB</h5>
+          <pre><span class="k">class</span> <span class="s">PlaceOrderServiceTest</span> {
+    <span class="k">@Test</span> <span class="k">void</span> placeOrder_luuVaGuiThongBao() {
+        <span class="k">var</span> save = mock(<span class="s">SaveOrderPort</span>.class);
+        <span class="k">var</span> notify = mock(<span class="s">NotificationPort</span>.class);
+        <span class="k">var</span> service = <span class="k">new</span> <span class="s">PlaceOrderService</span>(save, notify);
+        <span class="s">OrderId</span> id = service.placeOrder(validCommand());
+        verify(save).save(any());
+        verify(notify).notifyOrderPlaced(eq(id), any());
+    }
+}</pre>
+        </div>
+
+        <!-- ============ TAB 2: CLEAN + CQRS ============ -->
+        <div class="tab-panel" id="t-cqrs">
+          <h4>Hexagonal/Clean + CQRS</h4>
+          <p>Tách luồng GHI (Command) khỏi ĐỌC (Query). Command đi qua aggregate, trả id; Query bỏ qua aggregate, đọc read model tối ưu. Dùng khi đọc/ghi lệch nặng.</p>
+          <pre><span class="c">ordering/</span>
+  <span class="k">api-contract/</span>                        <span class="c"># DTO + endpoint chia sẻ</span>
+    {OrderView,PlaceOrderRequest,OrderApi}.java
+  <span class="k">domain/</span>                             <span class="c"># WRITE MODEL — aggregate Order</span>
+    model/{Order,OrderId,OrderStatus}.java
+  <span class="k">application/</span>
+    command/PlaceOrderCommand.java
+    command/handler/PlaceOrderCommandHandler.java   <span class="c"># qua aggregate, ghi, trả id</span>
+    query/{GetOrderByIdQuery,OrderView}.java         <span class="c"># READ MODEL</span>
+    query/handler/GetOrderByIdQueryHandler.java      <span class="c"># đọc thẳng, bỏ qua aggregate</span>
+    port/out/{OrderWriteRepository,OrderReadRepository}.java  <span class="c"># TÁCH RIÊNG</span>
+  <span class="k">web-api/</span>                            <span class="c"># DRIVING adapter (web) — MODULE RIÊNG (package webapi)</span>
+    order/OrderCommandController.java   <span class="c"># route GHI — map DTO → command</span>
+    order/OrderQueryController.java     <span class="c"># route ĐỌC — trả OrderView (read model) trực tiếp</span>
+    order/mapper/OrderCommandDtoMapper.java  <span class="c"># MapStruct: DTO → command (chỉ nhánh GHI)</span>
+  <span class="k">infrastructure/</span>                     <span class="c"># adapter RA/driven — CHỈ out/ (không còn web controller)</span>
+    out/persistence/write/             <span class="c"># JPA — phía ghi</span>
+    out/persistence/read/              <span class="c"># JdbcTemplate (SQL thuần) — phía đọc, nhanh</span>
+  <span class="k">bootstrap/</span>
+    OrdersApplication.java</pre>
+          <h5>Command handler — đi qua aggregate, chỉ trả id</h5>
+          <pre><span class="k">@Service</span>
+<span class="k">public class</span> <span class="s">PlaceOrderCommandHandler</span> {
+    <span class="k">private final</span> <span class="s">OrderWriteRepository</span> writeRepo;
+    <span class="k">@Transactional</span>
+    <span class="k">public</span> <span class="s">OrderId</span> handle(<span class="s">PlaceOrderCommand</span> cmd) {
+        <span class="s">Order</span> order = <span class="s">Order</span>.place(cmd.customerId(), cmd.total());  <span class="c">// aggregate validate</span>
+        writeRepo.save(order);
+        <span class="k">return</span> order.id();                                     <span class="c">// KHÔNG trả read data</span>
+    }
+}</pre>
+          <h5>Query handler — đọc read model, không qua aggregate</h5>
+          <pre><span class="c">// READ MODEL — phẳng, tối ưu đọc, KHÁC write model</span>
+<span class="k">public record</span> <span class="s">OrderView</span>(<span class="s">String</span> orderId, <span class="s">String</span> customerId, <span class="s">BigDecimal</span> total, <span class="s">String</span> status) {}
+
+<span class="k">@Service</span>
+<span class="k">public class</span> <span class="s">GetOrderByIdQueryHandler</span> {
+    <span class="k">private final</span> <span class="s">OrderReadRepository</span> readRepo;
+    <span class="k">public</span> <span class="s">Optional</span>&lt;<span class="s">OrderView</span>&gt; handle(<span class="s">GetOrderByIdQuery</span> q) {   <span class="c">// đọc thuần</span>
+        <span class="k">return</span> readRepo.findById(q.orderId());
+    }
+}</pre>
+          <h5>Read adapter dùng JDBC thuần (bỏ qua ORM cho nhanh)</h5>
+          <pre><span class="k">@Component</span>
+<span class="k">public class</span> <span class="s">OrderReadPersistenceAdapter</span> <span class="k">implements</span> <span class="s">OrderReadRepository</span> {
+    <span class="k">private final</span> <span class="s">JdbcTemplate</span> jdbc;
+    <span class="k">public</span> <span class="s">Optional</span>&lt;<span class="s">OrderView</span>&gt; findById(<span class="s">String</span> id) {
+        <span class="k">return</span> jdbc.query(<span class="s">"SELECT id, customer_id, total, status FROM orders WHERE id = ?"</span>,
+                          MAPPER, id).stream().findFirst();
+    }
+}</pre>
+          <div class="card"><span class="tag">Khi nào KHÔNG cần CQRS</span><p>Nếu đọc/ghi cùng shape và tải nhẹ, CQRS là thừa. Bắt đầu bằng Hexagonal + DDD; chỉ tách CQRS khi read model khác hẳn write model hoặc cần scale đọc/ghi độc lập.</p></div>
+        </div>
+
+        <!-- ============ TAB 3: ONION + DDD ============ -->
+        <div class="tab-panel" id="t-onionddd">
+          <h4>Onion + DDD</h4>
+          <p>Khung vòng đồng tâm của Onion + tactical pattern DDD. Tách rõ Domain Service (nghiệp vụ) khỏi Application Service (điều phối); interface khai báo ở vòng trong.</p>
+          <pre><span class="c">ordering/</span>
+  <span class="k">api-contract/</span>
+    {OrderResponse,PlaceOrderRequest,OrderApi}.java
+  <span class="k">domain/</span>                             <span class="c"># LÕI</span>
+    model/order/{Order,OrderLine,Money,OrderId,OrderStatus}.java
+    model/customer/{CustomerId,CustomerTier}.java
+    event/OrderPlacedEvent.java        <span class="c"># DOMAIN EVENT</span>
+    service/PricingService.java        <span class="c"># DOMAIN SERVICE</span>
+    specification/HighValueOrderSpec.java  <span class="c"># SPECIFICATION</span>
+    repository/OrderRepository.java    <span class="c"># interface KHAI BÁO Ở LÕI</span>
+  <span class="k">application/</span>
+    PlaceOrderService.java             <span class="c"># APPLICATION SERVICE — transaction, điều phối</span>
+    port/{NotificationGateway,DomainEventPublisher}.java
+  <span class="k">infrastructure/</span>                     <span class="c"># VÒNG NGOÀI — hiện thực interface</span>
+    persistence/{OrderEntity,JpaOrderRepository}.java
+    notification/EmailNotificationGateway.java
+    client/BillingCreditAdapter.java   <span class="c"># Feign/HTTP adapter</span>
+  <span class="k">bootstrap/</span>
+    OrdersApplication.java</pre>
+          <h5>Domain Service — logic không thuộc riêng một aggregate</h5>
+          <pre><span class="c">// domain/service — thuần nghiệp vụ, không hạ tầng</span>
+<span class="k">public class</span> <span class="s">PricingService</span> {
+    <span class="c">/** Chiết khấu theo hạng khách — cần cả Money lẫn CustomerTier. */</span>
+    <span class="k">public</span> <span class="s">Money</span> applyDiscount(<span class="s">Money</span> subtotal, <span class="s">CustomerTier</span> tier) {
+        <span class="k">return</span> tier == <span class="s">CustomerTier</span>.VIP ? subtotal.multiplyPercent(90) : subtotal;
+    }
+}</pre>
+          <h5>Repository interface ở lõi, hiện thực ở infrastructure</h5>
+          <pre><span class="c">// domain/repository — interface, KHÔNG @Repository</span>
+<span class="k">public interface</span> <span class="s">OrderRepository</span> {
+    <span class="k">void</span> save(<span class="s">Order</span> order);
+    <span class="s">Optional</span>&lt;<span class="s">Order</span>&gt; findById(<span class="s">OrderId</span> id);
+}
+
+<span class="c">// infrastructure/persistence — hiện thực ở vòng ngoài cùng</span>
+<span class="k">@Repository</span>
+<span class="k">public class</span> <span class="s">JpaOrderRepository</span> <span class="k">implements</span> <span class="s">OrderRepository</span> {
+    <span class="c">// map Order (aggregate) &lt;-&gt; OrderEntity (JPA), dùng Spring Data bên trong</span>
+}</pre>
+          <h5>Application Service — điều phối + phát event</h5>
+          <pre><span class="k">@Service</span>
+<span class="k">public class</span> <span class="s">PlaceOrderService</span> {
+    <span class="k">private final</span> <span class="s">OrderRepository</span> repo;              <span class="c">// interface ở domain</span>
+    <span class="k">private final</span> <span class="s">DomainEventPublisher</span> publisher;
+    <span class="k">@Transactional</span>
+    <span class="k">public</span> <span class="s">OrderId</span> placeOrder(<span class="s">PlaceOrderCommand</span> cmd) {
+        <span class="s">Order</span> order = <span class="s">Order</span>.create(cmd.customerId(), lines(cmd));
+        order.place();
+        repo.save(order);
+        order.pullDomainEvents().forEach(publisher::publish);   <span class="c">// phát sau khi lưu</span>
+        <span class="k">return</span> order.id();
+    }
+}</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="multiservice">
+      <h3>Áp dụng cho hệ nhiều service (shared lib · api-contract · Feign)</h3>
+      <p>Khi tách thành nhiều service, ba thứ cần phân biệt rõ và đặt đúng chỗ:</p>
+      <pre><span class="c">acme-platform/</span>
+  <span class="k">ordering-api-contract/</span> <span class="c"># contract của Ordering: DTO + endpoint. KHÔNG logic/domain.</span>
+  <span class="k">billing-api-contract/</span>  <span class="c"># contract của Billing</span>
+  <span class="k">ordering-service/</span>      <span class="c"># domain đầy đủ; phụ thuộc billing-api-contract để GỌI billing</span>
+  <span class="k">billing-service/</span>       <span class="c"># domain đầy đủ; publish billing-api-contract</span>
+  <span class="k">common-web/</span>            <span class="c"># (tuỳ chọn, nhỏ) error handling, tracing — thuần kỹ thuật</span>
+  <span class="k">common-core/</span>           <span class="c"># (tuỳ chọn, nhỏ) base type kỹ thuật — KHÔNG nghiệp vụ</span></pre>
+      <p>Feign/HTTP client luôn nằm ở vòng ngoài cùng (infrastructure/adapter), hiện thực một port do lõi khai báo. Adapter đó là <strong>Anti-Corruption Layer</strong>: dịch DTO của contract sang value object của domain, để DTO của service khác không rò vào lõi. Nguyên tắc này giống nhau cho cả ba kiến trúc — chỉ khác tên tầng đặt nó (driven adapter / infrastructure client).</p>
+      <div class="card warn">
+        <span class="tag">Cái bẫy lớn nhất</span>
+        <p>Đừng gộp DTO contract, Feign client và domain vào một "shared jar" cho tiện. Làm vậy nối chặt các service và phá vỡ Bounded Context — đúng thứ ba kiến trúc sinh ra để bảo vệ. Giữ <em>contract</em> (chia sẻ được) tách khỏi <em>domain</em> (không chia sẻ). Module <code>shared</code> nếu có phải nhỏ và thuần kỹ thuật.</p>
+      </div>
+      <div class="card">
+        <span class="tag">Phép thử nhanh khi phân vân đặt class ở đâu</span>
+        <p>Là <em>ngôn ngữ giao tiếp giữa hai service</em> → <code>&lt;bc&gt;-api-contract</code>. Là <em>tiện ích kỹ thuật không mang nghiệp vụ</em> → <code>shared</code>. <em>Biết về quy tắc nghiệp vụ của một context</em> → ở lại trong service đó, không bao giờ ra ngoài.</p>
+      </div>
+      <p style="margin-top:20px"><em>Lưu ý về Feign:</em> Spring Cloud OpenFeign vẫn dùng được rộng rãi nhưng đang ở chế độ bảo trì; Spring khuyến nghị hướng tới HTTP Interface Clients (<code>@HttpExchange</code>). Cách tổ chức ở trên áp dụng như nhau cho cả hai — chỉ đổi cách khai báo interface client.</p>
+
+      <div class="footer">
+        Sổ tay onboarding · Kiến trúc hướng miền cho dev Java · Dùng nội bộ.<br>
+        Onion (J. Palermo) · Clean (R. C. Martin) · Hexagonal / Ports &amp; Adapters (A. Cockburn) · DDD (E. Evans).<br>
+        Template chạy được &amp; tài liệu MD chi tiết kèm theo trong bộ onboarding.
+      </div>
+    </section>
+
+
+  </main>
+</div>
+</div>
+<script>
+  // scroll-spy
+  const links = [...document.querySelectorAll('#nav a')];
+  const targets = links.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const id = '#' + e.target.id;
+        links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === id));
+      }
+    });
+  }, { rootMargin: '-8% 0px -80% 0px' });
+  targets.forEach(t => obs.observe(t));
+
+  // tabs
+  document.addEventListener('click', (e) => {
+    if (!e.target.classList.contains('tab-btn')) return;
+    const group = e.target.closest('.tabs');
+    const idx = [...group.querySelectorAll('.tab-btn')].indexOf(e.target);
+    group.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i===idx));
+    group.querySelectorAll('.tab-panel').forEach((p,i) => p.classList.toggle('active', i===idx));
+  });
+</script>
+</body>
+</html>

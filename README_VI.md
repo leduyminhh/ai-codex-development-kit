@@ -1,243 +1,141 @@
 # AI Engineering Platform
 
-AI Engineering Platform là bộ capability dạng plugin cho các AI coding agent.
-Nội dung chuẩn của skills, commands, agents, hooks, workflows, schemas và
-templates nằm trong `plugins/`; CLI `aie` chiếu nội dung đó thành file native cho
-Codex, Claude Code, Cursor và Google Antigravity.
+`ai-engineering-platform` (CLI: `aip`) là nền tảng plugin giữ **một nguồn sự thật
+duy nhất** cho nội dung năng lực AI-agent và chiếu (project) nó ra layout gốc của
+**Codex, Claude Code, Cursor, và Google Antigravity**. Viết năng lực MỘT LẦN dưới
+`plugins/` và `core/`; CLI sinh skill/marketplace/rules/workflow cho từng provider
+vào project đích, và chèn khối baseline "AI Engineering" vào `AGENTS.md` / `CLAUDE.md`
+của project đó.
 
-## Quickstart
+Pure ESM, **zero runtime dependency**, không có bước build. Node.js 20+.
 
-Yêu cầu Node.js 20 trở lên.
+> English: xem [README.md](README.md).
+
+## Bắt đầu nhanh
 
 ```bash
 git clone https://github.com/leduyminhh/ai-development-kit.git
 cd ai-development-kit
-npm install
-npm run build
-npm link
+npm install        # không biên dịch gì — chỉ cài dev tooling
+npm test           # mọi suite phải pass
+npm link           # đưa `aip` lên PATH
 ```
 
-Có thể dùng một trong hai tên CLI:
+Cài năng lực vào project khác:
 
 ```bash
-ai-engineering --help
-aie -h
+cd /duong-dan/project
+aip                                   # wizard tương tác
+# hoặc non-interactive:
+aip install --provider claude --plugin backend --yes
+aip install --provider all --plugin all --yes
+aip install --provider codex --plugin all -g   # scope global
 ```
 
-Cài capability vào một project đích:
+`aip` và `ai-engineering-platform` gọi cùng một CLI. `aip --help` in hướng dẫn.
 
-```bash
-cd /path/to/project
+## Cấu trúc
 
-aie init
-aie install
-aie doctor
-```
-
-## Contents
-
-- [Cấu Trúc](#cấu-trúc)
-- [Cấu Trúc Chi Tiết](#cấu-trúc-chi-tiết)
-- [Danh Mục Plugin](#danh-mục-plugin)
-- [Getting Started](#getting-started)
-- [Provider Outputs](#provider-outputs)
-- [Maintainer Workflow](#maintainer-workflow)
-- [Migration And Docs](#migration-and-docs)
-
-## Cấu Trúc
-
-| Đường dẫn | Mục đích |
+| Đường dẫn | Vai trò |
 | --- | --- |
-| `plugins/` | Nội dung plugin chuẩn có thể cài đặt: manifest, skills, commands, agents, hooks, templates, workflows và schemas. |
-| `core/` | AGENTS baseline, routing registry, schemas, standards, templates và workflow dùng chung. |
-| `adapters/` | Logic projection cho Codex, Claude Code, Cursor và Antigravity. |
-| `providers/` | MCP provider registry, config schemas, policies và ví dụ chưa active. |
-| `cli/` | Source CLI `ai-engineering` / `aie`, `dist/` sinh ra, test và shell utilities giữ lại. |
-| `docs/` | Hồ sơ migration, design spec, implementation plan và tài liệu repository. |
-| `completions/` | Script shell completion cho `aie`. |
+| `plugins/` | Nguồn năng lực: `<id>/.manifest.json` + `shared/principles.md` + `skills/<skill>/SKILL.md`, cùng `_marketplace.json` và `_cowork.json`. |
+| `core/` | Baseline dùng chung: `agents/AGENTS.template.md`, `principles/`, và recipe dùng chung `skills/git-workflow/`. |
+| `templates/` | `init/` khung project (do skill `*-init` drop ra) và `skills/` khung viết skill. |
+| `adapters/` | Chiếu theo provider (`<provider>/adapter.mjs`), auto-discover. `_shared/lib.mjs` chứa logic dùng chung. |
+| `cli/` | CLI `aip` (`index.mjs` + `lib/*.mjs` + `build.mjs`). Pure ESM, zero-dep. |
+| `test/` | Validator hợp đồng + test install/wizard/managed-block/pack-guard. |
+| `docs/` | Bản thiết kế và spec. |
+| `completions/` | Shell completion cho `aip` (xem [SHELL_SETUP.md](SHELL_SETUP.md)). |
 
-Markdown command trong `plugins/<plugin>/commands/*.md` là nguồn command chuẩn.
-`core/routing/command-registry.yaml` là index dẫn xuất deterministic dùng
-schema version 2.
+## Danh mục plugin
 
-## Cấu Trúc Chi Tiết
+Nội dung được giữ gọn: `core` cộng bốn domain plugin, với skill là **recipe độc lập,
+gọi-khi-cần** (KHÔNG có pipeline bắt buộc).
 
-Mỗi plugin là một gói capability độc lập. Đặt nội dung canonical trong plugin sở
-hữu hành vi, rồi để adapter chiếu thành file native theo từng provider.
-
-```text
-plugins/<plugin>/
-  plugin.yaml                 manifest chuẩn, dependency và asset
-  skills/<skill>/SKILL.md      quy trình agent tái sử dụng và reference
-  commands/*.md                hợp đồng orchestration hướng người dùng
-  agents/                      agent definition provider-neutral khi cần
-  hooks/                       hook definition do plugin sở hữu khi cần
-  workflows/*.yaml             workflow definition có thể cài đặt
-  schemas/*.json               schema output cho command hoặc workflow
-  templates/                   artifact sinh ra có thể tái sử dụng
-  rules/                       rule do plugin sở hữu khi cần
-```
-
-| Asset | Vai trò | Ghi chú |
+| Plugin | Năng lực | Skill |
 | --- | --- | --- |
-| `plugin.yaml` | Khai báo metadata, dependency, asset, provider compatibility, trigger và install behavior. | Cập nhật khi asset có thể cài đặt thay đổi. |
-| `skills/<skill>/SKILL.md` | Định nghĩa quy trình domain có thể tái sử dụng. | Skill sở hữu reference, script, subagent và verification rules. |
-| `commands/*.md` | Định nghĩa entry point hướng người dùng. | Command chứa intent, input, required skills, steps và output contract. |
-| `agents/` | Định nghĩa specialized agent có thể chạy. | Codex nhận `.codex/agents/*.toml`; Claude và Antigravity nhận bản Markdown. |
-| `hooks/` | Thêm provider hook hoặc audit hook. | Chỉ project khi provider hỗ trợ. |
-| `workflows/` | Lưu workflow definition cài vào `.ai-engineering/workflows/definitions/`. | Dùng `aie workflow <subcommand>` để chạy và inspect workflow state. |
-| `schemas/` | Lưu JSON schema cho output command hoặc workflow. | Frontmatter `outputSchema` của command phải trỏ tới schema đã khai báo. |
+| `core` | Baseline mọi plugin phụ thuộc. | `principles`, `git-workflow` |
+| `backend` | Project backend (REST API / service). | `backend-init`, `backend-migrate-architecture`, `backend-migrate-vault-consul` |
+| `frontend` | Project frontend (web app / SPA). | `frontend-init` |
+| `oltp-database` | Project CSDL OLTP. | `oltp-database-init` |
+| `olap-warehouse` | Project data pipeline / warehouse. | `olap-warehouse-init` |
 
-## Danh Mục Plugin
+Mỗi skill `*-init` là **bộ scaffold TÀI LIỆU**: drop cây `templates/init` +
+`AGENTS.template.md`, hỏi thông tin nền (stack / framework / engine / nguồn), rồi điền
+`project-knowledge/`. Hai recipe `migrate-*` của backend tái cấu trúc codebase có sẵn
+(kiến trúc; hoặc config → Vault/Consul).
 
-| Plugin | Capability | Plugin bắt buộc | Skills chính | Commands / Workflows chính |
-| --- | --- | --- | --- | --- |
-| `architecture` | Review kiến trúc, boundary, shared contract, pattern và diagram. | Không có | `architecture-onion-design`, `code-shared-design`, `code-design-pattern`, `diagram-generate` | `review-architecture`, `architecture-review-pipeline` |
-| `application` | Feature delivery cho backend, frontend, API, Spring, React, Kafka và Redis. | `architecture`, `quality`, `security`, `data` | `api-contract-design`, `java-implement`, `python-implement`, `react-implement` | `deliver-feature`, `plan-feature`, `implement-backend`, `implement-frontend`, `test-feature`, `feature-delivery-pipeline` |
-| `data` | Lập kế hoạch migration cho database quan hệ và document. | Không có | `data-migration` | `plan-migration`, `db-migration-pipeline` |
-| `knowledge` | Tài liệu kỹ thuật, README, onboarding, changelog và release notes. | Không có | `doc-write`, `release-notes` | `write-technical-doc`, `write-release-notes`, `documentation-pipeline` |
-| `platform` | Git workflow, deployment planning, workflow-kit bootstrap và incident response. | Không có | `git-workflow-design`, `using-workflow-kit`, `incident-response` | `plan-deployment`, `respond-incident`, `incident-response-pipeline` |
-| `quality` | QA review, test automation, naming validation, coverage và verification. | Không có | `test-qa-review`, `test-automation-validate`, `naming-rule-validate` | `verify-quality`, `quality-verification-pipeline` |
-| `security` | OWASP/CWE review, secrets, threat modeling, dependency review và container security. | Không có | `security-code-review` | `review-security`, `security-audit-pipeline` |
+Gọi skill trong Claude Code: `/<plugin>:<skill>` (vd `/backend:backend-init`).
 
-## Getting Started
+## CLI
 
-### Install
-
-Chạy `aie install` trong terminal tương tác để mở install wizard. CLI phát hiện
-tín hiệu provider và ngữ cảnh project, đề xuất plugin, hỗ trợ `antigravity`, xem
-trước install plan và có thể resume phiên bị gián đoạn từ
-`.ai-engineering/install/session.json`.
-
-Phím trong wizard:
-
-- `Up/Down` hoặc `j/k`: di chuyển giữa các mục.
-- `Space`: bật/tắt plugin hoặc provider.
-- `Enter`: tiếp tục hoặc xác nhận install plan.
-- `Esc` hoặc `q`: hủy.
-- `b`: quay từ step con về step cha.
-- `Install all plugins`: chọn toàn bộ plugin; bật lại lần nữa sẽ bỏ chọn toàn bộ.
-
-### Flow CLI Tương Tác
+Mọi lệnh chạy `node cli/index.mjs`.
 
 ```bash
-aie init
-aie install
-aie check
-aie doctor
-aie remove
-aie upgrade
+aip                 # menu wizard: install | uninstall | build | check
+aip install   --provider all|<p>... --plugin all|<id>... [-g] [--yes]
+aip uninstall [--provider ...] [--plugin ...] [-g] [--yes]
+aip build     --provider all|<p>...
+aip check     [-g]
+aip update    [-g]        # git pull + build lại + cài lại các install đã ghi
+aip list                  # adapter + plugin phát hiện được
 ```
 
-### Step 1: Install
+- **Scope**: `project` (mặc định, cwd) hoặc `global` (`-g` / `--scope global`, thư mục home).
+- **Install** ưu tiên symlink (junction trên Windows) + fallback copy, và **cộng dồn** —
+  cài thêm plugin sẽ hợp với cái đã có. Đồng thời chèn khối baseline vào file chỉ dẫn của project.
+- **Uninstall** chỉ gỡ path đã track (không đụng target của link), prune thư mục rỗng, và
+  đếm-tham-chiếu khối managed dùng chung.
+- Provider cài mặc định: `claude`, `cursor`, `codex`. `antigravity` có build nhưng chỉ cài
+  khi gọi tường minh (`--provider antigravity`).
 
-```bash
-aie install application --target codex --yes
-aie install application --with quality
-aie install --all --target codex --yes
-aie install --all --target antigravity --yes
-```
+State mỗi lần cài nằm ở `<scope-root>/.ai-engineering/manifest.json`.
 
-Scope mặc định là project. Dùng `-g` hoặc `--scope global` cho vị trí provider
-global của user:
+## Đầu ra theo provider
 
-```bash
-aie install --all --target codex -g
-```
+`aip build` ghi một cây cho mỗi provider dưới `build/<provider>/`:
 
-### Step 2: Check
-
-```bash
-aie check
-aie doctor
-```
-
-### Step 3: Remove
-
-```bash
-aie remove
-aie remove security
-aie remove --all --yes
-```
-
-### Step 4: Upgrade
-
-```bash
-aie upgrade
-aie upgrade --all --yes
-aie update platform security --yes
-aie upgrade --dry-run
-```
-
-Dùng alias lifecycle `aie update` khi muốn upgrade trực tiếp một số plugin cụ thể.
-
-## Provider Outputs
-
-Mọi scope đều lưu runtime, ownership, lock và backup dưới
-`<scope-root>/.ai-engineering/`.
-
-| Provider | Project scope | Global scope |
+| Provider | Đầu ra build | Cài vào (scope project) |
 | --- | --- | --- |
-| Codex | `AGENTS.md`, `.agents/skills`, `.codex/agents`, `.codex/workflows/commands.md`, `.codex/workflows/commands/*.md` | `~/.codex/AGENTS.md`, `~/.agents/skills`, `~/.codex/agents`, `~/.codex/workflows/commands.md` |
-| Claude | `CLAUDE.md`, `.claude/skills`, `.claude/commands`, `.claude-plugin/plugin.json` | `~/.claude/CLAUDE.md`, `.claude/skills`, `.claude/commands` |
-| Cursor | `AGENTS.md`, `.cursor/rules`, `.cursor/mcp.json` | `.cursor/mcp.json` |
-| Antigravity | `AGENTS.md`, `antigravity-plugin.json`, `skills/`, `commands/`, `rules/`, `mcp/mcp.json` | `.antigravity/AGENTS.md`, `antigravity-plugin.json`, `skills/`, `commands/`, `rules/`, `mcp/mcp.json` |
+| Claude | `.claude-plugin/marketplace.json` + `plugins/<id>/` (core là plugin dependency) | `.claude/skills/<skill>`; khối baseline → `CLAUDE.md` |
+| Cursor | `<id>/.cursor/rules/<id>-00-principles.mdc` + `.cursor/skills/<skill>/` | `.cursor/rules` + `.cursor/skills` |
+| Codex | `<id>/skills/<skill>/SKILL.md` (native skills) | `.codex/skills/<skill>` (global: `~/.codex/skills`); khối baseline → `AGENTS.md` |
+| Antigravity | `<id>/AGENTS.md` + `docs/workflow/<skill>/` | khi cài tường minh; khối baseline → `AGENTS.md` |
 
-Khi cập nhật instruction file, hệ thống giữ nguyên nội dung người dùng sở hữu
-nằm ngoài AI Engineering baseline block và ghi backup dưới
-`.ai-engineering/backups/`.
+Skill nào ship thư mục `references/` thì ship tới **mọi** provider (parity, do
+`test/validate.mjs` bắt buộc).
 
-## Maintainer Workflow
+## Viết nội dung
 
-Lệnh maintainer:
+- **Skill mới** → thêm `plugins/<id>/skills/<skill-id>/SKILL.md` với frontmatter (`name`,
+  `description`, `order`, `title`, `runsIn`, `invoke`, `pipeline: false`, `next: null`).
+  Tự động được phát hiện — không phải khai vào manifest. File tham chiếu đặt dưới
+  `skills/<skill>/references/`.
+- **Hành vi provider mới** → sửa `adapters/<provider>/adapter.mjs`; giữ là hàm thuần
+  `build(plugins, { outDir, marketplace, core }) -> fileEntry[]` với entry là
+  `{path, content}` | `{path, copyFrom}` | `{path, copyDir}`.
+- Chạy `npm run build` và `npm test` (đã gồm `test/validate.mjs --build`).
 
-```bash
-aie validate
-aie schema check <plugin> <json-file> [--schema <relpath>]
-aie build --all
-aie artifact verify --all
-aie registry generate
-aie migrate --dry-run
-aie migrate --delete-legacy
-aie generate-adapter <plugin...> --target <provider[,provider...]>
-```
-
-Xác minh repository:
+## Maintainer
 
 ```bash
-npm run build:cli
-npm test
-npm run validate
-npm run doctor
+npm test            # validate --build + install + wizard + managed-block + pack-guard
+npm run build       # build tất cả provider vào build/
+npm run validate    # hợp đồng source + build-output
+npm run pack:verify # kiểm tập file npm-publish nằm trong pack.config.json
 ```
 
-Shell completions là tùy chọn:
+Cowork upload: `cli/lib/pack.mjs` đóng gói tập skill khai trong `_cowork.json` thành
+`build/cowork/<skill>.zip` tất định cho Customize → Skills → Upload.
 
-```bash
-# Bash
-source /path/to/aie-repo/completions/aie.bash
+## Tài liệu
 
-# Zsh
-fpath=(/path/to/aie-repo/completions $fpath)
-autoload -U compinit && compinit
-```
+- [CHANGELOG.md](CHANGELOG.md) — lịch sử phiên bản.
+- [MIGRATION.md](MIGRATION.md) — hướng dẫn nâng cấp.
+- [docs/superpowers/specs/](docs/superpowers/specs/) — bản thiết kế.
 
-Xem [SHELL_SETUP.md](SHELL_SETUP.md) để setup chi tiết.
+## Checklist thay đổi
 
-## Migration And Docs
-
-- [CHANGELOG.md](CHANGELOG.md): release notes và lịch sử phiên bản.
-- [MIGRATION.md](MIGRATION.md): hướng dẫn upgrade từ naming và layout v1.0.
-- [docs/migration/migrate-existing-source-to-plugins-platform.md](docs/migration/migrate-existing-source-to-plugins-platform.md): target migration plugin-first hiện tại.
-- [docs/migration/completion-checklist.md](docs/migration/completion-checklist.md): tiêu chí hoàn tất migration.
-
-v1.1 chuẩn hóa 7 plugin quanh noun-action skills, verb-noun commands và
-domain-pipeline workflows. Phiên bản này cũng gộp các phase-specific feature
-skills thành stack và domain skills như `java-implement`, `python-implement`,
-`react-implement`, `test-qa-review` và `test-automation-validate`.
-
-## Checklist Thay Đổi
-
-- Cập nhật `README.md` tiếng Anh trước, rồi đồng bộ `README_VI.md`.
-- Giữ bảng lệnh, provider path và plugin khớp với `plugins/`, `adapters/` và `core/routing/`.
-- Chạy `npm run validate` sau thay đổi về cấu trúc, command id, provider path hoặc danh mục plugin.
+- Cập nhật `README.md` trước, rồi đồng bộ [README_VI.md](README_VI.md).
+- Giữ danh mục plugin và bảng provider khớp `plugins/` và `adapters/`.
+- Chạy `npm test` sau mọi thay đổi cấu trúc, nội dung, hoặc projection.

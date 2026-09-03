@@ -4,41 +4,31 @@
   "description": "AI IDE plugin platform with generated adapters for AI engineering agents.",
   "type": "module",
   "bin": {
-    "ai-engineering-platform": "./cli/dist/index.js",
-    "ai-engineering": "./cli/dist/index.js",
-    "aie": "./cli/dist/index.js"
+    "aip": "cli/index.mjs",
+    "ai-engineering-platform": "cli/index.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "test": "npm run build:cli && node --test \"cli/test/*.mjs\"",
-    "build": "npm run build:cli",
-    "build:cli": "tsc -p cli/tsconfig.json",
-    "prepare": "npm run build:cli",
-    "validate": "node cli/dist/index.js validate",
-    "doctor": "node cli/dist/index.js doctor",
-    "migrate:dry-run": "node cli/dist/index.js migrate --dry-run"
+    "build": "node cli/build.mjs --target all",
+    "list": "node cli/build.mjs --list",
+    "validate": "node test/validate.mjs",
+    "test": "node test/validate.mjs --build && node test/install.test.mjs && node test/wizard.test.mjs && node test/managed-block.test.mjs && node test/pack-guard.test.mjs",
+    "pack:verify": "node cli/lib/pack-guard.mjs",
+    "pack:show": "node cli/lib/pack-guard.mjs --show",
+    "prepack": "node cli/lib/pack-guard.mjs"
   },
-  "workspaces": [
-    "cli"
-  ],
   "files": [
-    "plugins",
-    "core",
-    "adapters",
-    "providers",
-    "cli",
-    "LICENSE",
-    "README.md"
+    "cli/",
+    "core/",
+    "templates/",
+    "plugins/",
+    "adapters/",
+    "README.md",
+    "AGENTS.md",
+    "LICENSE"
   ],
   "license": "MIT",
-  "devDependencies": {
-    "@types/node": "^22.15.0",
-    "typescript": "^5.8.3"
-  },
-  "dependencies": {
-    "doctor": "^0.1.26",
-    "js-yaml": "^5.0.0"
-  }
+  "dependencies": {}
 }
