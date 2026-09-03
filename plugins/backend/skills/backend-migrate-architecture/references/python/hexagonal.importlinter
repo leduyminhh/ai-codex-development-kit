@@ -1,0 +1,20 @@
+[importlinter]
+root_package = myapp
+
+[importlinter:contract:hexagonal-layers]
+name = Hexagonal layers — core khong phu thuoc adapter
+type = layers
+layers =
+    myapp.infrastructure
+    myapp.application
+    myapp.domain
+
+[importlinter:contract:domain-independent]
+name = Domain khong import framework/ha tang
+type = forbidden
+source_modules =
+    myapp.domain
+forbidden_modules =
+    myapp.infrastructure
+    sqlalchemy
+    fastapi

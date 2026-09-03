@@ -1,0 +1,6 @@
+{
+  "id": "oltp-database",
+  "name": "OLTP Database Cowork→Code",
+  "description": "OLTP = Online Transaction Processing. Workflow sở hữu một cơ sở dữ liệu VẬN HÀNH (OLTP) dùng chung như một SẢN PHẨM, contract-first theo Schema Contract: 5 giai đoạn oltp-database-init → oltp-database-analysis → oltp-database-schema-contract → oltp-database-migration → oltp-database-implement. Chốt schema vật lý (bảng/cột/kiểu/ràng buộc/khóa/index) làm hợp đồng công bố cho consumer TRƯỚC, kèm seed mẫu; rồi lập migration versioned (expand-contract, reversible); rồi mới áp migration + DB objects thật và test toàn vẹn. Consumer (app backend, service khác) đọc-ghi trực tiếp qua schema contract này. KHÁC olap-warehouse (OLAP — đọc dữ liệu TỪ nguồn, gồm chính oltp-database, để phân tích) và KHÁC backend-erd (mô hình dữ liệu NHÚNG trong một app).",
+  "version": "1.0.0"
+}

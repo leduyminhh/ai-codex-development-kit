@@ -1,0 +1,7 @@
+{
+  "name": "ai-engineering-platform",
+  "owner": {
+    "name": "ai-engineering-platform"
+  },
+  "description": "ai-engineering-platform — marketplace workflow AI đa lĩnh vực; mỗi lĩnh vực là một plugin, build ra cấu hình cho nhiều công cụ AI (Claude Code, Cursor, Codex, Antigravity)."
+}

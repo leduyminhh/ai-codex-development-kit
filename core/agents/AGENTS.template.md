@@ -1,119 +1,110 @@
 # AGENTS.md
 
-## Overview
-
-Purpose:
-- Describe the local project's goals, constraints, and agent operating context.
-- Keep project-owned purpose and repository details outside managed sections.
+Common, provider-agnostic execution baseline for AI coding agents (Claude Code, Cursor, Codex,
+Antigravity). This file holds **only the shared baseline** — project-specific rules live in each
+tool's project file (e.g. `CLAUDE.md`), which references this baseline.
 
 <!-- AI-ENGINEERING:BEGIN AGENTS_BASELINE -->
 ## AI Engineering Baseline
 
-This managed block is the repository-wide execution baseline for AI agents. It
-does not replace domain skills; it makes agents read the right context, preserve
-user work, validate deterministically, and report evidence before claiming
-completion.
+Read this file before any task.
 
-### Core Rule
+### Priority (resolve all conflicts in this order)
 
-Before doing any task, the agent MUST read this file and follow its rules.
+1. User request → 2. Project-specific rules (e.g. `CLAUDE.md`) → 3. This baseline (`AGENTS.md`)
+   → 4. Tool/skill instructions → 5. General AI knowledge
 
-**Priority:**
-1. User request
-2. AGENTS.md
-3. Project conventions
-4. Tool / skill instructions
-5. General AI knowledge
+If rules conflict with each other, choose the **safest change that still satisfies the user
+request**, and state the assumption.
 
-**Required Workflow:**
-For every task:
-1. Read AGENTS.md
-2. Understand the user request
-3. Check relevant project files before changing code
-4. Make only necessary changes
-5. Verify the result
-6. Report what was changed
+### Rules
 
-> **Do Not Skip:** The agent MUST NOT ignore this file.
->
-> If rules are unclear, the agent must choose the safest minimal change and explain the assumption.
+1. **Read before writing.** Inspect the relevant code/config/tests (and this file) before editing.
+   Don't bulk-scan protected paths or external references.
+2. **Surgical changes.** Smallest clear change that satisfies the request; touch only files for the
+   current goal; preserve unrelated user work. No new abstraction unless it removes real complexity
+   or matches an existing pattern.
+3. **Match conventions.** Follow local naming/layout/validation/commit/protected-path rules before
+   introducing a new one.
+4. **Surface conflicts.** When instructions/configs/tests disagree, name the conflict and resolve by
+   Priority; ask only when the decision is **risky** (irreversible, outward-facing, destructive) and
+   cannot be inferred.
+5. **Verify intent.** Run deterministic validation (validators, selected tests) proving the requested
+   *behavior/invariant*, not just that code runs.
+6. **Fail loud.** No completion claim without evidence. Report blockers, skipped checks, uncertainty,
+   and residual risk. Never present unverified output as fact.
+7. **Comments are documentation, not narration.** Follow **Comments** below. Never narrate what the
+   code already expresses; explain *why* only when the gate passes.
 
-### Core Process
+> **Long / ambiguous tasks:** define the success condition up front; checkpoint after
+> plan/edit/verify/publish; prefer targeted reads over broad scans.
 
-1. Classify the task and identify the minimum relevant files, skills, and repo
-   rules.
-2. Read before writing, including target instruction files such as `AGENTS.md`
-   or `CLAUDE.md`.
-3. Apply `mustHave` rules first; apply optional rules only when they improve
-   safety or clarity.
-4. Keep edits surgical and preserve unrelated user changes.
-5. Run deterministic validation that proves the request, then report exact
-   commands, skipped checks, blockers, and residual risk.
+### Comments
 
-### Command Routing
+Assume the reader is an experienced engineer. Do not teach the language, framework, or API. Only
+document domain knowledge, design decisions, assumptions, invariants, or non-obvious behavior that
+cannot be inferred from the code itself.
 
-- When the user asks for an installed command, flow, workflow, or capability
-  entry point, check the provider command catalog before choosing skills.
-- For Codex installs, read `.codex/workflows/commands.md` first, then open the
-  matching command file under `.codex/workflows/commands/<slug>.md` when it
-  exists.
-- Treat command files as orchestration contracts: follow their intent, required
-  skills, steps, and output contract, then load the listed skills for the
-  detailed operating procedure.
-- If no matching command exists, fall back to the most specific installed skill
-  and report that no command route was available.
+**Add a comment only when at least one is true:**
 
-### Must-Have Rules
+- The business rule cannot be inferred from the code.
+- The implementation is intentionally non-obvious.
+- A workaround exists because of an external limitation or bug.
+- A specific assumption or invariant must always hold.
+- The code prevents a subtle bug that is easy to reintroduce.
+- A complex algorithm or optimization would take significantly longer to understand than reading a
+  short explanation.
 
-1. Think before coding. Inspect relevant code, config, skill, or test paths
-   before editing. For multi-step work, state the approach once enough context is
-   known.
-2. Prefer simplicity first. Choose the smallest clear change that satisfies the
-   request. Avoid new abstractions unless they remove real complexity or match an
-   established repo pattern.
-3. Make surgical changes. Touch only files needed for the current goal. Preserve
-   unrelated user changes and avoid broad restructuring.
-4. Surface conflicts. When instructions, configs, tests, or references disagree,
-   identify the conflict and choose by priority or ask only when the decision is
-   risky and cannot be inferred.
-5. Read before writing. Read targeted source files before modifying them. Do not
-   bulk-scan protected paths or external references.
-6. Test intent, not only behavior. Prefer tests and validation that prove the
-   requested requirement, regression risk, or invariant. For production-facing
-   changes, report operational, security, rollback, and maintainability risks.
-7. Match codebase conventions. Follow local naming, folder placement,
-   validation, commit, and protected-path rules before introducing a new
-   convention.
-8. Use generated code comments sparingly. Add comments only where purpose or flow
-   is not obvious, especially around complex generated functions.
-9. Keep solutions production-ready. Do not present work as production-ready
-   unless validation, residual risks, and rollback considerations are addressed
-   or explicitly scoped out.
-10. Fail loud. Do not claim completion without evidence. Report blockers,
-    skipped verification, uncertainty, and residual risk explicitly.
+**Do not comment:**
 
-### Optional Rules
+- What the code already expresses (assignments, loops, ifs, method calls, obvious details).
+- Framework or language features.
+- TODOs unless the user explicitly requested them.
 
-1. Goal-driven execution. Define the success condition for ambiguous or
-   long-running tasks before implementation.
-2. Use deterministic tools before judgment. Use scripts, validators, tests,
-   parsers, and structured repo signals for mechanical checks.
-3. Token discipline. Prefer targeted reads, summaries, and progressive
-   disclosure. Treat token limits as a reason to narrow scope, not to skip
-   validation.
-4. Checkpoint significant steps. For long tasks, report concise checkpoints after
-   planning, editing, verification, and publishing.
+**Quality gate — before adding a comment, all three must pass:**
+
+1. Can a senior engineer understand this code without the comment? → Yes → do not comment.
+2. Does the comment explain *why* instead of *what*? → No → do not comment.
+3. If the comment is removed, will maintainability decrease? → No → do not comment.
+
+Every comment explains **why**, never **what**. Write in Vietnamese with correct diacritics; keep
+1–2 lines, technical, and neutral. Delete redundant or outdated comments instead of adding new ones.
+
+### Safety — never act without explicit confirmation
+
+- **Don't push to protected branches** (`main`/`master`/`dev`/`develop`). Work on a feature branch;
+  leave the diff/PR for human review.
+- **Don't run destructive or schema-changing operations** (migration/DDL, data deletion, `reset --hard`,
+  force-push, history rewrite) without explicit confirmation.
+- **Don't read, print, or modify secret files** (`.env`, `*.env`, credentials, `*.jks`/`*.keystore`,
+  key material).
+- **Stop for human diff review before committing** (1 task = 1 commit).
+- **Don't add `Co-authored-by` / `Co-Authored-By` lines** (or assistant attribution) to commit
+  messages, PR bodies, or tag/release notes.
+
+> The project file may add more specific boundaries (e.g. generated dirs, source-of-truth paths).
+
+### Command routing (if the tool supports commands/workflows)
+
+Prefer an installed command/workflow entry point over ad-hoc skill choice. Treat a command file as
+an *orchestration contract* (intent → required skills → steps → output). If none matches, fall back
+to the most specific skill and **say so**.
+
+> The catalog path is **tool-specific**, defined by the provider (e.g. Codex:
+> `.codex/workflows/commands.md`). Other tools ignore this line.
 
 ### Language
 
-- Use Vietnamese for user-facing repository work.
-- When Vietnamese is used, write proper UTF-8 Vietnamese with diacritics.
+- User-facing output in **Vietnamese** with correct UTF-8 diacritics: PR/MR descriptions, release
+  notes, user docs, and the Vietnamese body of commit messages.
+- Commit header stays `type(scope): summary`; follow the repo's existing header language.
+- Code identifiers, this baseline file, and config keys stay in **English**.
 
-### Verification Contract
+### Definition of Done (affirm before claiming complete)
 
 - Relevant files were read before editing.
-- Edits are limited to the requested scope.
-- Conflicts, skipped checks, uncertainty, and residual risks are reported.
-- Required validators or selected tests were run after structure, skill, config,
-  code, or documentation changes.
+- Edits are limited to the requested scope; unrelated work preserved.
+- Validators/tests ran after any code/config/structure/doc change (state results); skipped checks
+  and residual risk reported.
+- Conflicts, assumptions, and uncertainty surfaced.
 <!-- AI-ENGINEERING:END AGENTS_BASELINE -->

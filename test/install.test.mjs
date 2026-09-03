@@ -1,0 +1,266 @@
+#!/usr/bin/env node
+// Test round-trip: install -> check -> uninstall vào thư mục tạm (AIE_INSTALL_ROOT).
+// Zero-dependency. Chạy: node test/install.test.mjs
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const isLink = (p) => { try { fs.readlinkSync(p); return true; } catch { return false; } };
+
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-test-'));
+process.env.AIE_INSTALL_ROOT = TMP;
+
+const { install, uninstall, update, check, linkDisabledForRoot, claudePluginCommands, claudePluginRefreshCommands, claudeCliScope, marketplacesToRemove } =
+  await import('../cli/lib/install.mjs');
+const { zipBuffer, coworkSkillIds, pack } = await import('../cli/lib/pack.mjs');
+
+let pass = 0;
+const fails = [];
+const ok = (c, m) => { if (c) pass++; else fails.push(m); };
+const exists = (rel) => fs.existsSync(path.join(TMP, rel));
+
+// ── unit: phát hiện môi trường npm (node_modules) ──────────────────────────
+ok(linkDisabledForRoot('/home/u/app/node_modules/cowork-code-workflow-kit') === true,
+  'linkDisabledForRoot: posix node_modules → true');
+ok(linkDisabledForRoot('C:\\Users\\u\\AppData\\Roaming\\npm\\node_modules\\cwk') === true,
+  'linkDisabledForRoot: windows node_modules → true');
+ok(linkDisabledForRoot('E:\\Company\\IOC\\Shared\\cowork-code-workflow-kit') === false,
+  'linkDisabledForRoot: repo thường (win) → false');
+ok(linkDisabledForRoot('/home/u/dev/cowork-code-workflow-kit') === false,
+  'linkDisabledForRoot: repo thường (posix) → false');
+
+// ── unit: claude plugin-mode command builder (PURE — KHÔNG exec `claude`) ────
+ok(claudeCliScope('global') === 'user' && claudeCliScope('project') === 'project',
+  'claudeCliScope: global→user, project→project');
+{
+  const c = claudePluginCommands({
+    pluginIds: ['backend', 'frontend'], scope: 'global',
+    marketplaceName: 'cowork-code-workflow-kit', marketplaceDir: '/x/build/claude',
+  });
+  ok(c.cliScope === 'user', 'pluginCmds: scope global → --scope user');
+  ok(JSON.stringify(c.add) === JSON.stringify(['plugin', 'marketplace', 'add', '/x/build/claude', '--scope', 'user']),
+    'pluginCmds: "marketplace add <dir> --scope user" đúng argv');
+  ok(c.installs.length === 2
+    && JSON.stringify(c.installs[0]) === JSON.stringify(['plugin', 'install', 'backend@cowork-code-workflow-kit', '--scope', 'user']),
+    'pluginCmds: "install <id>@<mkt> --scope user" đúng argv');
+  ok(!c.installs.some((a) => a.some((t) => t === 'core@cowork-code-workflow-kit')),
+    'pluginCmds: KHÔNG install core tường minh (tự kéo qua dependency "core")');
+  // FORCE core tươi khi cài: làm mới snapshot + gỡ core cũ để domain kéo lại core tươi (bust version-cache)
+  ok(JSON.stringify(c.marketplaceUpdate) === JSON.stringify(['plugin', 'marketplace', 'update', 'cowork-code-workflow-kit']),
+    'pluginCmds: có "marketplace update <mkt>" (làm mới snapshot trước khi cài)');
+  ok(JSON.stringify(c.coreUninstall) === JSON.stringify(['plugin', 'uninstall', 'core@cowork-code-workflow-kit', '--scope', 'user', '-y']),
+    'pluginCmds: có "uninstall core -y" (bust cache core cũ → domain kéo lại core tươi)');
+  ok(JSON.stringify(c.uninstalls[1]) === JSON.stringify(['plugin', 'uninstall', 'frontend@cowork-code-workflow-kit', '--scope', 'user', '-y']),
+    'pluginCmds: "uninstall …@… --scope user -y" (non-interactive, có -y)');
+  ok(JSON.stringify(c.marketplaceRemove) === JSON.stringify(['plugin', 'marketplace', 'remove', 'cowork-code-workflow-kit', '--scope', 'user']),
+    'pluginCmds: "marketplace remove <mkt> --scope user" đúng argv');
+}
+
+// ── unit: claudePluginRefreshCommands (PURE) — update plugin-mode phải FORCE re-copy ─────────
+// Root cause đã xác nhận: cache Claude key theo VERSION; kit không bump version → `plugin install`/
+// `plugin update` no-op ("already at latest 1.0.0") dù nội dung đổi. Refresh đúng = marketplace update
+// + uninstall + install từng plugin (force re-copy từ build/claude). BẮT BUỘC gồm core (prepend):
+// core chỉ được kéo qua dependency lúc install nên KHÔNG bao giờ tự re-copy → skill dùng chung mới
+// của core (git-workflow) không tới Claude nếu update bỏ sót core.
+{
+  const c = claudePluginRefreshCommands({
+    pluginIds: ['backend', 'frontend'], scope: 'global', marketplaceName: 'cowork-code-workflow-kit',
+  });
+  ok(JSON.stringify(c.marketplaceUpdate) === JSON.stringify(['plugin', 'marketplace', 'update', 'cowork-code-workflow-kit']),
+    'refreshCmds: "marketplace update <mkt>" đúng argv');
+  ok(c.pairs.length === 3 && c.pairs[0].id === 'core',
+    'refreshCmds: core được refresh TƯỜNG MINH và ĐỨNG TRƯỚC (dependency trước domain plugin)');
+  ok(JSON.stringify(c.pairs[0].uninstall) === JSON.stringify(['plugin', 'uninstall', 'core@cowork-code-workflow-kit', '--scope', 'user', '-y'])
+    && JSON.stringify(c.pairs[0].install) === JSON.stringify(['plugin', 'install', 'core@cowork-code-workflow-kit', '--scope', 'user']),
+    'refreshCmds: core = cặp uninstall(-y) rồi install (force re-copy, scope user khi global)');
+  ok(JSON.stringify(c.pairs[1].uninstall).includes('backend@cowork-code-workflow-kit')
+    && JSON.stringify(c.pairs[2].uninstall).includes('frontend@cowork-code-workflow-kit'),
+    'refreshCmds: đủ mọi domain plugin trong entry sau core');
+}
+// dedup: nếu ai đó truyền core sẵn trong pluginIds thì KHÔNG nhân đôi
+{
+  const c = claudePluginRefreshCommands({
+    pluginIds: ['core', 'backend'], scope: 'project', marketplaceName: 'mkt',
+  });
+  ok(c.pairs.length === 2 && c.pairs.filter((p) => p.id === 'core').length === 1,
+    'refreshCmds: core truyền sẵn → dedup, không nhân đôi');
+}
+
+// ── unit: marketplacesToRemove (PURE) — chỉ gỡ marketplace khi không còn entry giữ lại dùng ──
+{
+  const MKT = 'cowork-code-workflow-kit';
+  const rem = [{ mode: 'plugin', marketplace: MKT, plugins: ['backend'] }];
+  const keepSame = [{ mode: 'plugin', marketplace: MKT, plugins: ['frontend'] }];
+  ok(marketplacesToRemove(rem, keepSame).size === 0,
+    'mktToRemove: còn entry giữ lại cùng marketplace → KHÔNG gỡ marketplace');
+  ok(marketplacesToRemove(rem, []).has(MKT),
+    'mktToRemove: gỡ entry cuối, hết plugin → gỡ marketplace');
+  ok(marketplacesToRemove([{ provider: 'claude', plugins: ['x'] }], []).size === 0,
+    'mktToRemove: entry skills (không mode plugin) → không gỡ marketplace');
+  // gỡ 2 entry cùng marketplace, không giữ lại entry nào → marketplace xuất hiện đúng 1 lần
+  const rem2 = [{ mode: 'plugin', marketplace: MKT, plugins: ['backend'] }, { mode: 'plugin', marketplace: MKT, plugins: ['frontend'] }];
+  ok(marketplacesToRemove(rem2, []).size === 1 && marketplacesToRemove(rem2, []).has(MKT),
+    'mktToRemove: nhiều entry cùng marketplace → Set gộp 1 lần');
+}
+
+// ── additive: cài cùng provider 2 lần -> CỘNG DỒN plugin (không thay thế) ─────
+{
+  const TMP_ADD = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-add-'));
+  process.env.AIE_INSTALL_ROOT = TMP_ADD;
+  install({ providers: 'claude', plugins: 'backend', scope: 'project' });
+  install({ providers: 'claude', plugins: 'frontend', scope: 'project' });
+  const E = (rel) => fs.existsSync(path.join(TMP_ADD, rel));
+  ok(E('.claude/skills/backend-init/SKILL.md') && E('.claude/skills/frontend-init/SKILL.md'),
+    'additive: cài backend rồi frontend → cả hai cùng tồn tại (không thay thế)');
+  const mf = JSON.parse(fs.readFileSync(path.join(TMP_ADD, '.ai-engineering/manifest.json'), 'utf8'));
+  const claudeEntry = mf.installs.find((e) => e.provider === 'claude');
+  ok(claudeEntry && claudeEntry.plugins.includes('backend') && claudeEntry.plugins.includes('frontend'),
+    'additive: manifest entry claude gộp [backend, frontend]');
+  fs.rmSync(TMP_ADD, { recursive: true, force: true });
+  process.env.AIE_INSTALL_ROOT = TMP; // khôi phục cho round-trip
+}
+
+// ── partial uninstall: entry nhiều plugin, gỡ 1 plugin -> GIỮ phần còn lại ────
+{
+  const TMP_P = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-partial-'));
+  process.env.AIE_INSTALL_ROOT = TMP_P;
+  install({ providers: 'claude', plugins: ['backend', 'frontend'], scope: 'project' });
+  uninstall({ providers: 'claude', plugins: 'backend', scope: 'project' });
+  const E = (rel) => fs.existsSync(path.join(TMP_P, rel));
+  ok(!E('.claude/skills/backend-init/SKILL.md'), 'partial uninstall: backend đã gỡ');
+  ok(E('.claude/skills/frontend-init/SKILL.md'), 'partial uninstall: frontend còn lại');
+  const mf = JSON.parse(fs.readFileSync(path.join(TMP_P, '.ai-engineering/manifest.json'), 'utf8'));
+  const ce = mf.installs.find((e) => e.provider === 'claude');
+  ok(ce && ce.plugins.includes('frontend') && !ce.plugins.includes('backend'),
+    'partial uninstall: manifest còn frontend, hết backend');
+  fs.rmSync(TMP_P, { recursive: true, force: true });
+  process.env.AIE_INSTALL_ROOT = TMP;
+}
+
+// ── update: empty manifest + reinstall (tái quét) + regression phát hiện SKILL MỚI ──────────
+{
+  // empty manifest → update không làm gì (pull=false: không đụng git)
+  const TMP_E = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-upd-empty-'));
+  process.env.AIE_INSTALL_ROOT = TMP_E;
+  const re = update({ scope: 'project', pull: false });
+  ok(re.empty === true && re.entries.length === 0, 'update: manifest trống → empty, không cập nhật gì');
+  fs.rmSync(TMP_E, { recursive: true, force: true });
+
+  // integration: cài claude backend rồi update (pull=false) → reinstall (tái quét), skill vẫn còn
+  const TMP_UP = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-upd-int-'));
+  process.env.AIE_INSTALL_ROOT = TMP_UP;
+  install({ providers: 'claude', plugins: 'backend', scope: 'project' });
+  const ru = update({ scope: 'project', pull: false });
+  const be = ru.entries.find((e) => e.provider === 'claude');
+  ok(be && be.action === 'reinstall', 'update: entry skills-mode → reinstall (tái quét build)');
+  ok(fs.existsSync(path.join(TMP_UP, '.claude/skills/backend-init/SKILL.md')), 'update: skill vẫn còn sau update');
+  fs.rmSync(TMP_UP, { recursive: true, force: true });
+
+  // REGRESSION (root cause): skill dùng chung MỚI của core (git-workflow) phải xuất hiện sau update
+  // dù bản cài trước đó KHÔNG có nó. Mô phỏng "cài trước khi git-workflow tồn tại" = xoá link/skill
+  // git-workflow rồi update. Trước fix: symlink-pass giữ nguyên tập link cũ → git-workflow BỎ SÓT.
+  const TMP_NEW = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-upd-new-'));
+  process.env.AIE_INSTALL_ROOT = TMP_NEW;
+  install({ providers: 'claude', plugins: 'backend', scope: 'project' });
+  const gwf = path.join(TMP_NEW, '.claude/skills/git-workflow');
+  ok(fs.existsSync(gwf), 'regression precondition: git-workflow (core) được cài từ đầu');
+  fs.rmSync(gwf, { recursive: true, force: true }); // giả lập bản cài cũ chưa có git-workflow
+  ok(!fs.existsSync(gwf), 'regression: đã xoá git-workflow để mô phỏng bản cài cũ');
+  update({ scope: 'project', pull: false });
+  ok(fs.existsSync(path.join(gwf, 'SKILL.md')), 'regression: update TÁI TẠO git-workflow (phát hiện skill mới của core)');
+  ok(fs.existsSync(path.join(TMP_NEW, '.claude/skills/backend-init/SKILL.md')), 'regression: skill cũ không bị mất');
+  fs.rmSync(TMP_NEW, { recursive: true, force: true });
+
+  process.env.AIE_INSTALL_ROOT = TMP; // khôi phục cho round-trip chính
+}
+
+try {
+  // 1. install claude + backend (project)
+  const r1 = install({ providers: 'claude', plugins: 'backend', scope: 'project' });
+  ok(r1.results[0].count > 0, 'claude: có file được cài');
+  ok(exists('.claude/skills/backend-init/SKILL.md'), 'claude: backend-init/SKILL.md');
+  ok(exists('.claude/skills/principles/SKILL.md'), 'claude: core principles đi kèm');
+  ok(exists('.claude/skills/backend-principles/SKILL.md'), 'claude: backend-principles (shared) đi kèm');
+  ok(exists('.ai-engineering/manifest.json'), 'manifest được tạo');
+  ok(typeof r1.results[0].linked === 'number' && typeof r1.results[0].copied === 'number',
+    'results: có trường linked/copied');
+  ok(r1.results[0].count === r1.results[0].linked + r1.results[0].copied,
+    'results: count = linked + copied');
+  // link mode: skill-dir là symlink/junction trỏ build/ (không phải copy)
+  ok(isLink(path.join(TMP, '.claude/skills/backend-init')), 'claude: skill-dir là link (junction/symlink)');
+  ok(r1.results[0].linked > 0, 'claude: có link được tạo (linked > 0)');
+
+  // 2. install cursor + frontend (project) — rules (00-principles) + Agent Skills
+  install({ providers: 'cursor', plugins: 'frontend', scope: 'project' });
+  const rules = fs.existsSync(path.join(TMP, '.cursor/rules'))
+    ? fs.readdirSync(path.join(TMP, '.cursor/rules')) : [];
+  ok(rules.includes('frontend-00-principles.mdc'), 'cursor: 00-principles có prefix tránh đụng');
+  ok(rules.every((f) => !f.endsWith('.mdc') || f === 'frontend-00-principles.mdc'),
+    'cursor: không còn per-stage .mdc (chỉ 00-principles)');
+  ok(exists('.cursor/skills/frontend-init/SKILL.md'), 'cursor: skill frontend-init');
+  ok(exists('.cursor/skills/git-workflow/SKILL.md'), 'cursor: core git-workflow đi kèm');
+  ok(isLink(path.join(TMP, '.cursor/skills/frontend-init')), 'cursor: skill-dir là link (junction/symlink)');
+  ok(isLink(path.join(TMP, '.cursor/skills/git-workflow')), 'cursor: git-workflow skill-dir là link');
+
+  // 3. install codex -> native skills vào .codex/skills/ (core đi kèm)
+  install({ providers: 'codex', plugins: 'olap-warehouse', scope: 'project' });
+  ok(exists('.codex/skills/olap-warehouse-init/SKILL.md'), 'codex: skill-dir vào .codex/skills/');
+  ok(exists('.codex/skills/principles/SKILL.md'), 'codex: core principles đi kèm');
+  // skill có references -> ship references/ đi kèm SKILL.md (parity) — core git-workflow còn references/
+  ok(exists('.codex/skills/git-workflow/references/branch-convention.md'), 'codex: references đi kèm SKILL.md');
+  ok(isLink(path.join(TMP, '.codex/skills/olap-warehouse-init')), 'codex: skill-dir là link (junction/symlink)');
+
+  // 4. check
+  const c = check({ scope: 'project' });
+  ok(c.installs.length === 3, 'check: liệt kê 3 install');
+  ok(c.installs.every((e) => e.present === e.files), 'check: mọi file present');
+
+  // 5. uninstall claude -> file claude mất, cursor/codex còn
+  uninstall({ providers: 'claude', scope: 'project' });
+  ok(!exists('.claude/skills/backend-init/SKILL.md'), 'uninstall claude: file đã xóa');
+  ok(fs.existsSync(path.join(REPO, 'build/claude/plugins/backend/skills/backend-init/SKILL.md')),
+    'uninstall claude: build/ nguồn KHÔNG bị xóa qua link');
+  ok(exists('.codex/skills/olap-warehouse-init/SKILL.md'), 'uninstall claude: KHÔNG đụng codex');
+  ok(exists('.cursor/skills/frontend-init/SKILL.md'), 'uninstall claude: KHÔNG đụng cursor skills');
+  ok(check({ scope: 'project' }).installs.length === 2, 'check: còn 2 install');
+
+  // 5b. uninstall cursor -> rules + skills sạch
+  uninstall({ providers: 'cursor', scope: 'project' });
+  ok(!exists('.cursor/rules/frontend-00-principles.mdc'), 'uninstall cursor: rules đã xóa');
+  ok(!exists('.cursor/skills/frontend-init/SKILL.md'), 'uninstall cursor: skills đã xóa');
+  ok(!exists('.cursor/skills/git-workflow/SKILL.md'), 'uninstall cursor: core skills đã xóa');
+  ok(exists('.codex/skills/olap-warehouse-init/SKILL.md'), 'uninstall cursor: KHÔNG đụng codex');
+  ok(check({ scope: 'project' }).installs.length === 1, 'check: còn 1 install (codex)');
+
+  // 6. uninstall all -> manifest biến mất
+  uninstall({ scope: 'project' });
+  ok(!exists('.ai-engineering/manifest.json'), 'uninstall all: manifest đã dọn');
+  ok(check({ scope: 'project' }).installs.length === 0, 'check: trống');
+} finally {
+  fs.rmSync(TMP, { recursive: true, force: true });
+}
+
+// ── pack Cowork: manifest _cowork.json + ZIP writer zero-dep ─────────────────
+{
+  const z = zipBuffer([{ name: 'd/a.txt', data: Buffer.from('hello cowork') }]);
+  ok(z.slice(0, 4).toString('hex') === '504b0304', 'zip: chữ ký local file header (PK\\x03\\x04)');
+  ok(z.includes(Buffer.from('504b0506', 'hex')), 'zip: có End Of Central Directory (PK\\x05\\x06)');
+
+  const ids = coworkSkillIds();
+  ok(ids.includes('backend:backend-init') && ids.includes('core:principles'),
+    'cowork manifest: gồm backend:backend-init + core:principles');
+
+  const TMP_PK = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-pack-'));
+  const r = pack({ outDir: TMP_PK });
+  ok(r.packed.some((p) => p.skill === 'backend-init'), 'pack: đóng gói skill backend-init');
+  const zp = path.join(TMP_PK, 'backend-init.zip');
+  ok(fs.existsSync(zp) && fs.readFileSync(zp).slice(0, 4).toString('hex') === '504b0304',
+    'pack: tạo backend-init.zip hợp lệ (PK)');
+  fs.rmSync(TMP_PK, { recursive: true, force: true });
+}
+
+console.log('');
+if (fails.length) { console.log('FAIL:'); for (const f of fails) console.log('  ✗ ' + f); }
+console.log(`\nINSTALL TEST: ${pass} pass, ${fails.length} fail`);
+process.exit(fails.length ? 1 : 0);

@@ -1,0 +1,17 @@
+[importlinter]
+root_package = myapp
+
+[importlinter:contract:cqrs-layers]
+name = CQRS layers
+type = layers
+layers =
+    myapp.infrastructure
+    myapp.application
+    myapp.domain
+
+[importlinter:contract:command-query-tach-roi]
+name = Command va Query khong phu thuoc lan nhau
+type = independence
+modules =
+    myapp.application.command
+    myapp.application.query

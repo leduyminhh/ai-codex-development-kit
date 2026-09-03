@@ -1,0 +1,6 @@
+{
+  "id": "olap-warehouse",
+  "name": "OLAP Warehouse Cowork→Code",
+  "description": "OLAP = Online Analytical Processing. Workflow xây KHO/pipeline PHÂN TÍCH (bao warehouse, lakehouse, stream), contract-first theo Data Contract của dataset đầu ra: 5 giai đoạn olap-warehouse-init → olap-warehouse-analysis → olap-warehouse-schema-contract → olap-warehouse-model-lineage → olap-warehouse-implement. Chốt schema đầu ra + SLA + nguồn dữ liệu (data contract) kèm sample/synthetic TRƯỚC; rồi mô hình hóa dimensional/normalized + lineage; rồi mới build transform/pipeline thật có data quality test. ĐỌC dữ liệu TỪ các nguồn vận hành (gồm chính oltp-database); phục vụ BI/report/dashboard + downstream. KHÁC oltp-database (giao dịch vận hành OLTP, DB dùng chung là sản phẩm) và KHÁC backend-erd (mô hình nhúng trong app).",
+  "version": "1.0.0"
+}

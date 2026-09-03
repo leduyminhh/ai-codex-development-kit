@@ -1,0 +1,12 @@
+{
+  "allowTop": ["adapters", "cli", "core", "plugins", "templates"],
+  "allowFile": ["package.json", "package-lock.json", "LICENSE", "README.md", "AGENTS.md"],
+  "deny": [
+    "\\.test\\.mjs$",
+    "^test/",
+    "^docs/",
+    "^completions/",
+    "^SHELL_SETUP\\.md$"
+  ],
+  "required": ["cli/index.mjs", "cli/build.mjs", "cli/lib/install.mjs", "cli/lib/plugins.mjs"]
+}

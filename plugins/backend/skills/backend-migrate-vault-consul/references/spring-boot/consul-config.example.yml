@@ -1,0 +1,21 @@
+# VÍ DỤ định dạng file config Consul — nạp vào KV key <prefix>/<context>/data (format=YAML).
+# KHÔNG chứa secret. Đây CŨNG là file paste xuống local (config/application.yml) khi thiếu Consul.
+server:
+  port: 8080
+spring:
+  datasource:
+    url: jdbc:postgresql://db:5432/app
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    hibernate:
+      ddl-auto: validate
+logging:
+  level:
+    root: INFO
+    org.springframework: INFO
+app:
+  feature:
+    signup-enabled: true
+  external:
+    base-url: https://api.example.com

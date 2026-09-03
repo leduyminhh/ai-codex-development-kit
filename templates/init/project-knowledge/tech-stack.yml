@@ -1,0 +1,18 @@
+language:
+  - name: <ngôn ngữ>
+    version: <version>
+frameworks:
+  - name: <framework>
+    version: <version>
+libraries:
+  - name: <lib>
+    version: <version>
+datastore:
+  - type: <db>
+    version: <version>
+tooling:
+  build: <...>
+  test: <...>
+  lint: <...>
+  ci: <...>
+runtime: <...>
