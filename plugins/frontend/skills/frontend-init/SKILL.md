@@ -7,6 +7,7 @@ title: "Frontend Init — Khởi tạo cấu trúc frontend project"
 runsIn: plan
 invoke: once
 pipeline: false
+sharedAssets: templates/architecture
 next: null
 ---
 
@@ -34,12 +35,15 @@ Copy nguyên cây `templates/` (đi kèm skill) vào gốc project, skip file đ
 Nếu project CHƯA có `AGENTS.md`: copy `AGENTS.template.md` (đi kèm skill) → `./AGENTS.md`. Đã
 có thì giữ nguyên.
 
-### 2. Hỏi thông tin nền + điền project-knowledge
-- HỎI **framework** (React / Khác — mặc định React) + domain + kiến trúc UI muốn hướng tới.
-- Điền `project-knowledge/*` bằng PROSE: `architecture.md` (phân tầng UI: presentational →
-  container/hook (state) → data layer/API client), `source-structure.md`, `code-convention.md`,
-  `tech-stack.yml`. KHÔNG copy skeleton code.
-- Ghi ADR cho quyết định lớn (framework, default stack) vào `docs/decisions/`.
+### 2. Hỏi thông tin nền + chọn kiến trúc + điền project-knowledge
+- HỎI **framework** (React / Khác — mặc định React) + domain + **kiểu kiến trúc UI**: **Layered**
+  (Presentational/Container + hooks + data — mặc định, SPA vừa/nhỏ) hoặc **FSD** (Feature-Sliced Design —
+  app nhiều domain/nhiều team). Chọn mức đơn giản nhất đủ dùng.
+- Dùng blueprint tương ứng ship kèm skill ở `architecture/react-<layered|fsd>.template.md` làm chuẩn cấu
+  trúc: điền `project-knowledge/architecture.md` + `source-structure.md` theo cây `src/`, Dependency Rule
+  và ranh giới tầng/slice của template đã chọn; `code-convention.md`, `tech-stack.yml` theo stack (mặc định
+  Tailwind + component-lib). KHÔNG copy skeleton code — chỉ mô tả cấu trúc.
+- Ghi ADR cho quyết định lớn (framework, kiểu kiến trúc UI) vào `docs/decisions/`.
 
 ### 3. Tài liệu đặc thù frontend (nhẹ)
 - `project-knowledge/design-system.md`: design tokens + nguyên tắc UI (mô tả, không code).
