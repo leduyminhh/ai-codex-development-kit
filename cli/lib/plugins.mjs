@@ -48,7 +48,7 @@ export function loadCore() {
     name: 'Core — Nguyên tắc nền tảng Cowork→Code',
     description:
       'Nguyên tắc nền tảng dùng chung (4 nguyên tắc cốt lõi, 3 tầng tài liệu, ranh giới an toàn, nguồn sự thật) cho mọi plugin workflow Cowork → Code. Mọi plugin phụ thuộc core này.',
-    version: '1.0.0',
+    version: '1.1.1',
     principles: readCorePrinciples(),
     stages: loadSkills(CORE_DIR),
   };
