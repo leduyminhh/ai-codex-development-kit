@@ -1,9 +1,9 @@
 ---
-name: spec-writing
-description: "Skill dùng chung (core) để KHẢO SÁT yêu cầu và VIẾT một feature/requirement spec GỌN vào đúng cấu trúc tài liệu sẵn có của project (docs/requests/<ngày>-<slug>/requirement.md + khung plan.md). Khảo sát BA còn thiếu (mục tiêu & success criteria, actors, phạm vi & out-of-scope, ràng buộc, NFR, edge case, tiêu chí chấp nhận) rồi viết đặc tả ở MỨC FEATURE (không phân rã story) với acceptance criteria ĐO ĐƯỢC, link ADR (docs/decisions/) + contract/data-model (docs/contracts/), liệt kê rủi ro/giả định/câu hỏi mở. Portable ra mọi provider (claude/cursor/codex/antigravity). Dùng skill NÀY khi người dùng muốn \"viết spec\", \"đặc tả yêu cầu\", \"làm tài liệu nghiệp vụ\", \"khảo sát yêu cầu\", \"feature spec\", \"requirement spec\", \"PRD gọn\", \"viết yêu cầu tính năng\" — kể cả khi không nói chính xác chữ \"skill\". Cần bộ artifact BA đầy đủ (PRD/SOD/DDD/FSD/BRD/personas) hay đặc tả SAP-specific và đang ở Cowork → handoff cho FIS (fisba/fissap/fispm). KHÔNG thuộc pipeline bắt buộc; gọi khi cần ở giai đoạn plan."
-order: 4
-stageNumber: "04"
-title: "Spec Writing — khảo sát yêu cầu + viết feature/requirement spec (dùng chung)"
+name: engineering-spec-writing
+description: "Skill capability (plugin engineering) để KHẢO SÁT yêu cầu và VIẾT một feature/requirement spec GỌN vào đúng cấu trúc tài liệu sẵn có của project (docs/requests/<ngày>-<slug>/requirement.md + khung plan.md). Khảo sát BA còn thiếu (mục tiêu & success criteria, actors, phạm vi & out-of-scope, ràng buộc, NFR, edge case, tiêu chí chấp nhận) rồi viết đặc tả ở MỨC FEATURE (không phân rã story) với acceptance criteria ĐO ĐƯỢC, link ADR (docs/decisions/) + contract/data-model (docs/contracts/), liệt kê rủi ro/giả định/câu hỏi mở. Portable ra mọi provider (claude/cursor/codex/antigravity). Dùng skill NÀY khi người dùng muốn \"viết spec\", \"đặc tả yêu cầu\", \"làm tài liệu nghiệp vụ\", \"khảo sát yêu cầu\", \"feature spec\", \"requirement spec\", \"PRD gọn\", \"viết yêu cầu tính năng\" — kể cả khi không nói chính xác chữ \"skill\". Cần bộ artifact BA đầy đủ (PRD/SOD/DDD/FSD/BRD/personas) hay đặc tả SAP-specific và đang ở Cowork → handoff cho FIS (fisba/fissap/fispm). KHÔNG thuộc pipeline bắt buộc; gọi khi cần ở giai đoạn plan."
+order: 2
+stageNumber: "02"
+title: "Spec Writing — khảo sát yêu cầu + viết feature/requirement spec"
 runsIn: plan
 invoke: per-request
 pipeline: false
@@ -40,8 +40,7 @@ KHÔNG dùng skill này để phân rã story/task chi tiết, sinh code, hay d�
 - Acceptance criteria phải **đo được** (Given/When/Then hoặc tiêu chí kiểm được); ngôn ngữ đo được, KHÔNG
   tuyên bố "đảm bảo / loại bỏ rủi ro / chặn triệt để".
 - Bám scaffold `docs/requests/_TEMPLATE` + `docs/decisions/_TEMPLATE.md`; KHÔNG dựng cấu trúc tài liệu song song.
-- Defer `project-knowledge/` + `code-convention.md` (skill init lo); chỉ thêm nội dung `core`; không đụng
-  CLI/adapter/engine.
+- Defer `project-knowledge/` + `code-convention.md` (skill init lo); docs-only, không đụng CLI/adapter/engine.
 - Con người **duyệt** spec trước khi dùng làm nguồn cho plan/triển khai.
 
 ## Luồng viết spec
@@ -64,6 +63,8 @@ KHÔNG dùng skill này để phân rã story/task chi tiết, sinh code, hay d�
    (ĐO ĐƯỢC), phạm vi/out-of-scope, actors, **functional requirements ở mức FEATURE (không phân rã story)**,
    acceptance criteria, điểm chạm data/contract (link `docs/contracts/` + data-model), rủi ro/giả định/câu
    hỏi mở. Bám scaffold `_TEMPLATE`, mở rộng chứ không thay thế. Tiếng Việt CÓ DẤU.
+   **Cần diagram trong spec** (flow/ERD/sequence/kiến trúc) → dùng skill **`engineering-diagram`** (cùng
+   plugin) để sinh PlantUML renderable, rồi nhúng/liên kết vào spec; skill này không tự vẽ diagram.
 
 4. **Ghi ADR cho quyết định lớn.**
    Với mỗi quyết định thiết kế/nghiệp vụ đáng lưu (chọn phương án, đánh đổi phạm vi, ràng buộc kỹ thuật lớn):
