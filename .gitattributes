@@ -1,0 +1,3 @@
+# Quy ước repo: UTF-8 không BOM, LF line endings (xem CLAUDE.md).
+# Ép LF khi checkout để git autocrlf không đổi LF -> CRLF trên Windows.
+* text=auto eol=lf
