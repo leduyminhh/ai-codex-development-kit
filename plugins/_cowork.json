@@ -1,13 +1,34 @@
 {
-  "_comment": "Danh sách skill đóng gói cho Cowork (build/cowork/<skill>.zip → Customize → Skills → Upload). Thêm skill cho Cowork = thêm 1 dòng '<plugin>:<skill-id>'. Bỏ key 'skills' hoặc để rỗng -> tự suy ra các skill runsIn:plan (init/analysis) + core:principles.",
+  "_comment": "Danh sách skill đóng gói cho Cowork (build/cowork/<skill>.zip → Customize → Skills → Upload). Thêm skill cho Cowork = thêm 1 dòng '<plugin>:<skill-id>'. Bỏ key 'skills' hoặc để rỗng -> tự suy ra các skill runsIn:plan + core:principles.",
   "skills": [
     "core:principles",
     "core:git-workflow",
     "backend:backend-init",
+    "backend:backend-implement",
+    "backend:backend-testing",
+    "backend:backend-code-review",
+    "backend:backend-refactor",
+    "backend:backend-api-contract",
     "backend:backend-migrate-architecture",
     "backend:backend-migrate-vault-consul",
     "frontend:frontend-init",
+    "frontend:frontend-implement",
+    "frontend:frontend-testing",
+    "frontend:frontend-code-review",
+    "frontend:frontend-refactor",
+    "frontend:frontend-migrate-architecture",
+    "engineering:engineering-quality-gate",
+    "engineering:engineering-spec-writing",
+    "engineering:engineering-diagram",
+    "engineering:engineering-release-notes",
+    "engineering:engineering-adr",
+    "engineering:engineering-convention-enforce",
+    "ops:ops-deploy-release",
+    "ops:ops-incident-troubleshooting",
+    "ops:ops-observability",
     "oltp-database:oltp-database-init",
-    "olap-warehouse:olap-warehouse-init"
+    "oltp-database:oltp-database-implement",
+    "olap-warehouse:olap-warehouse-init",
+    "olap-warehouse:olap-warehouse-implement"
   ]
 }
