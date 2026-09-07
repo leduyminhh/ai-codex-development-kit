@@ -34,6 +34,23 @@ aip install --provider codex --plugin all -g   # global scope
 
 `aip` and `ai-engineering-platform` invoke the same CLI. `aip --help` prints the guide.
 
+## Install from npm
+
+End users do not need to clone the repo. Once the package is published to the npm registry:
+
+```bash
+npm install -g ai-engineering-platform   # global install, `aip` on PATH
+aip --help
+cd /path/to/project
+aip install --provider all --plugin all --yes
+```
+
+Run once without a global install:
+
+```bash
+npx ai-engineering-platform install --provider all --plugin all --yes
+```
+
 ## Structure
 
 | Path | Owns |
@@ -132,6 +149,37 @@ npm run pack:verify # assert the npm-publish file set stays within pack.config.j
 
 Cowork upload: `cli/lib/pack.mjs` bundles the `_cowork.json` skill set into
 deterministic `build/cowork/<skill>.zip` files for Customize → Skills → Upload.
+
+## Publish to npm (maintainer)
+
+The package uses the `files[]` allowlist in `package.json`; the `prepack` hook runs
+pack-guard automatically (fail-loud if the file set drifts from `pack.config.json`).
+The package is unscoped, so it publishes public by default. In order:
+
+```bash
+# 1. Log in to npm (once per machine); npm whoami to check
+npm login
+
+# 2. Validate before publishing
+npm test
+npm run build
+
+# 3. Inspect the publish file set (writes nothing)
+npm run pack:verify        # or npm run pack:show to list it
+npm pack --dry-run         # see exactly what the tarball contains
+
+# 4. Bump version — creates a commit + vX.Y.Z tag, requires a clean git tree
+npm version patch          # or minor | major
+
+# 5. Publish (prepack runs pack-guard before packing)
+npm publish
+
+# 6. Push the commit + tag to the remote
+git push --follow-tags
+```
+
+Note: a published version **cannot** be overwritten; to fix, bump a new version.
+Do not publish from a protected branch — bump/tag on a working branch for review.
 
 ## Docs
 

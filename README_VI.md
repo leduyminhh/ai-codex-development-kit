@@ -34,6 +34,23 @@ aip install --provider codex --plugin all -g   # scope global
 
 `aip` và `ai-engineering-platform` gọi cùng một CLI. `aip --help` in hướng dẫn.
 
+## Cài từ npm
+
+Người dùng cuối không cần clone repo. Sau khi gói đã phát hành lên npm registry:
+
+```bash
+npm install -g ai-engineering-platform   # cài global, `aip` sẵn trên PATH
+aip --help
+cd /duong-dan/project
+aip install --provider all --plugin all --yes
+```
+
+Chạy một lần không cài global:
+
+```bash
+npx ai-engineering-platform install --provider all --plugin all --yes
+```
+
 ## Cấu trúc
 
 | Đường dẫn | Vai trò |
@@ -130,6 +147,37 @@ npm run pack:verify # kiểm tập file npm-publish nằm trong pack.config.json
 
 Cowork upload: `cli/lib/pack.mjs` đóng gói tập skill khai trong `_cowork.json` thành
 `build/cowork/<skill>.zip` tất định cho Customize → Skills → Upload.
+
+## Phát hành lên npm (maintainer)
+
+Gói dùng allowlist `files[]` trong `package.json`; hook `prepack` tự chạy pack-guard
+(fail-loud nếu tập file lệch `pack.config.json`). Gói không có scope nên mặc định public.
+Làm theo thứ tự:
+
+```bash
+# 1. Đăng nhập npm (một lần mỗi máy); npm whoami để kiểm tra
+npm login
+
+# 2. Xác thực trước khi phát hành
+npm test
+npm run build
+
+# 3. Kiểm tập file sẽ publish (không tạo file thật)
+npm run pack:verify        # hoặc npm run pack:show để xem danh sách
+npm pack --dry-run         # xem chính xác nội dung tarball
+
+# 4. Bump version — tạo commit + tag vX.Y.Z, yêu cầu cây git sạch
+npm version patch          # hoặc minor | major
+
+# 5. Phát hành (prepack chạy pack-guard trước khi đóng gói)
+npm publish
+
+# 6. Đẩy commit + tag lên remote
+git push --follow-tags
+```
+
+Lưu ý: một version đã publish **không** ghi đè được; muốn sửa phải bump version mới.
+Không phát hành từ nhánh bảo vệ — bump/tag trên nhánh làm việc, để người review duyệt.
 
 ## Tài liệu
 
