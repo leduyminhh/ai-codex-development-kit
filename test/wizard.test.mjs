@@ -74,47 +74,87 @@ function stub(script) {
   const calls = [...script];
   return () => Promise.resolve(calls.shift());
 }
-function makeDeps({ one = [], many = [], confirm = [] }) {
-  const o = stub(one), m = stub(many), c = stub(confirm);
+// Catalog nguồn giả: core (principles KHOÁ + git-workflow) + backend 2 skill.
+const CATALOG = { plugins: [
+  { id: 'core', skillIds: ['core/principles', 'core/git-workflow'] },
+  { id: 'backend', skillIds: ['backend/backend-init', 'backend/backend-testing'] },
+] };
+// Cài sẵn (project): claude có backend-init + baseline; cursor có backend-testing. skills = tập hiệu lực
+// (gồm generated backend-principles) như check() thật trả về — cây wizard tự bỏ id không nằm trong catalog.
+const INSTALLED_PROJECT = [
+  { provider: 'claude', plugins: [], mode: 'skills',
+    skills: ['core/principles', 'core/git-workflow', 'backend/backend-init', 'backend/backend-principles'] },
+  { provider: 'cursor', plugins: [], mode: 'skills',
+    skills: ['core/principles', 'backend/backend-testing', 'backend/backend-principles'] },
+];
+
+function makeDeps({ one = [], many = [], confirm = [], tree = [], catalog = CATALOG, installsFor } = {}) {
+  const o = stub(one), m = stub(many), c = stub(confirm), t = stub(tree);
+  const treeCalls = [];
+  const installs = installsFor || ((scope) => (scope === 'project' ? INSTALLED_PROJECT : []));
   return {
     selectOne: () => o(), selectMany: () => m(), confirmStep: () => c(),
+    selectTree: (_title, groups, opts = {}) => { treeCalls.push({ groups, opts }); return Promise.resolve(t()); },
+    _treeCalls: treeCalls,
     PROVIDERS: ['claude', 'cursor', 'codex'], // antigravity pending — không offer trong wizard
     knownPluginIds: () => ['backend', 'frontend', 'olap-warehouse'],
-    check: ({ scope }) => ({ installs: scope === 'project'
-      ? [{ provider: 'claude', plugins: ['backend'] }, { provider: 'cursor', plugins: ['frontend'] }] : [] }),
+    skillCatalog: () => catalog,
+    check: ({ scope }) => ({ installs: installs(scope) }),
   };
 }
 
-// install: scope -> providers -> plugins (đánh dấu đã/chưa cài) -> (kiểu cài claude) -> confirm
+// install: scope -> providers -> skills (cây gộp plugin) -> (kiểu cài claude) -> confirm
 {
-  const deps = makeDeps({ one: ['project', 'skills'], many: [['claude'], ['backend']], confirm: [true] });
+  const deps = makeDeps({ one: ['project', 'skills'], many: [['claude']],
+    tree: [['core/git-workflow', 'backend/backend-init']], confirm: [true] });
   const r = await runWizard('install', deps);
   ok(r && r.action === 'install' && r.scope === 'project' && r.mode === 'skills'
-    && JSON.stringify(r.plugins) === '["backend"]' && JSON.stringify(r.providers) === '["claude"]',
-    'install: ráp đúng action object (claude→skills)');
+    && JSON.stringify(r.plugins) === '[]'
+    && JSON.stringify(r.skills) === '["core/git-workflow","backend/backend-init"]'
+    && JSON.stringify(r.providers) === '["claude"]',
+    'install: ráp đúng action object (plugins=[], skills từ cây, claude→skills)');
+}
+
+// install: preselect cây = core/git-workflow (default) ∪ skill đã cài của provider; core/principles KHOÁ trong groups
+{
+  const deps = makeDeps({ one: ['project', 'skills'], many: [['claude']],
+    tree: [['core/git-workflow', 'backend/backend-init']], confirm: [true] });
+  await runWizard('install', deps);
+  const call = deps._treeCalls[0];
+  const pre = new Set(call.opts.preselected);
+  ok(pre.has('core/git-workflow'), 'install: preselect có core/git-workflow (default baseline)');
+  ok(pre.has('backend/backend-init'), 'install: preselect có skill đã cài của claude (backend-init)');
+  const coreGroup = call.groups.find((g) => g.plugin === 'core');
+  const principles = coreGroup.skills.find((s) => s.value === 'core/principles');
+  ok(principles && principles.locked === true, 'install: core/principles là con KHOÁ trong cây');
+  ok(call.opts.min === 1, 'install: cây skill min=1');
 }
 
 // install: claude chọn kiểu plugin -> mode='plugin'
 {
-  const deps = makeDeps({ one: ['project', 'plugin'], many: [['claude'], ['backend']], confirm: [true] });
+  const deps = makeDeps({ one: ['project', 'plugin'], many: [['claude']],
+    tree: [['core/git-workflow', 'backend/backend-init']], confirm: [true] });
   const r = await runWizard('install', deps);
   ok(r && r.mode === 'plugin', 'install: claude chọn kiểu cài plugin → mode=plugin');
 }
 
 // install: KHÔNG chọn claude -> không hỏi kiểu cài (selectOne chỉ tiêu cho scope), mode mặc định 'skills'
 {
-  const deps = makeDeps({ one: ['project'], many: [['cursor'], ['frontend']], confirm: [true] });
+  const deps = makeDeps({ one: ['project'], many: [['cursor']],
+    tree: [['backend/backend-testing']], confirm: [true] });
   const r = await runWizard('install', deps);
   ok(r && r.mode === 'skills' && JSON.stringify(r.providers) === '["cursor"]',
     'install: không claude → mode=skills (bỏ qua bước kiểu cài)');
 }
 
-// back: plugins trả BACK -> quay lại providers (giữ), chọn lại -> tiếp
+// back: skills trả BACK -> quay lại providers (giữ), chọn lại -> tiếp
 {
   const { BACK } = await import('../cli/lib/prompt.mjs');
-  const deps = makeDeps({ one: ['project', 'skills'], many: [['claude'], BACK, ['claude'], ['backend', 'frontend']], confirm: [true] });
+  const deps = makeDeps({ one: ['project', 'skills'], many: [['claude'], ['claude']],
+    tree: [BACK, ['core/git-workflow', 'backend/backend-init']], confirm: [true] });
   const r = await runWizard('install', deps);
-  ok(r && JSON.stringify(r.plugins) === '["backend","frontend"]', 'install: back ở plugins quay lại providers, chọn lại OK');
+  ok(r && JSON.stringify(r.skills) === '["core/git-workflow","backend/backend-init"]',
+    'install: back ở skills quay lại providers, chọn lại OK');
 }
 
 // cancel: bước đầu (scope) BACK -> null
@@ -133,15 +173,38 @@ function makeDeps({ one = [], many = [], confirm = [] }) {
   ok(r === null, 'install: CANCEL giữa luồng (providers) -> null');
 }
 
-// uninstall: scope project -> chọn provider đã cài -> confirm
+// uninstall: scope project -> chọn skill đã cài -> confirm; providers suy từ entry chứa skill
 {
-  const deps = makeDeps({ one: ['project'], many: [['claude']], confirm: [true] });
+  const deps = makeDeps({ one: ['project'], tree: [['backend/backend-init']], confirm: [true] });
   const r = await runWizard('uninstall', deps);
-  ok(r && r.action === 'uninstall' && JSON.stringify(r.providers) === '["claude"]' && r.scope === 'project',
-    'uninstall: chọn provider đã cài');
+  ok(r && r.action === 'uninstall' && JSON.stringify(r.skills) === '["backend/backend-init"]'
+    && JSON.stringify(r.providers) === '["claude"]' && r.scope === 'project',
+    'uninstall: chọn skill đã cài, providers suy đúng (claude giữ backend-init)');
 }
 
-// uninstall: scope global -> manifest rỗng -> null
+// uninstall: groups CHỈ gồm skill gỡ được (bỏ core/principles + generated backend-principles), gộp theo plugin
+{
+  const deps = makeDeps({ one: ['project'], tree: [['backend/backend-init']], confirm: [true] });
+  await runWizard('uninstall', deps);
+  const groups = deps._treeCalls[0].groups;
+  const all = groups.flatMap((g) => g.skills.map((s) => s.value));
+  ok(!all.includes('core/principles') && !all.includes('backend/backend-principles'),
+    'uninstall: cây loại core/principles + generated backend-principles');
+  ok(all.includes('backend/backend-init') && all.includes('backend/backend-testing'),
+    'uninstall: cây gồm skill nguồn đã cài (union claude+cursor)');
+  ok(!groups.some((g) => g.skills.some((s) => s.locked)), 'uninstall: cây không có mục khoá');
+}
+
+// uninstall: chọn skill có ở CẢ hai provider -> providers gồm cả claude+cursor
+{
+  const deps = makeDeps({ one: ['project'],
+    tree: [['backend/backend-init', 'backend/backend-testing']], confirm: [true] });
+  const r = await runWizard('uninstall', deps);
+  ok(r && JSON.stringify(r.providers.sort()) === '["claude","cursor"]',
+    'uninstall: providers = mọi provider chứa skill vừa chọn');
+}
+
+// uninstall: scope global -> manifest rỗng -> null (không có skill gỡ được)
 {
   const deps = makeDeps({ one: ['global'] });
   const r = await runWizard('uninstall', deps);
