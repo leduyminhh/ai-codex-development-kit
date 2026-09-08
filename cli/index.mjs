@@ -19,30 +19,13 @@ import { pack } from './lib/pack.mjs';
 import { PROVIDERS } from './lib/paths.mjs';
 import { runWizard } from './lib/wizard.mjs';
 import { WizardUnavailable } from './lib/prompt.mjs';
+import { parse } from './lib/args.mjs';
 
 const CLI_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 function pkgVersion() {
   try { return JSON.parse(fs.readFileSync(path.join(CLI_DIR, '..', 'package.json'), 'utf8')).version; }
   catch { return '?'; }
-}
-
-function parse(argv) {
-  const a = { _: [], scope: 'project', provider: 'all', plugin: 'all', target: 'all', mode: 'skills' };
-  for (let i = 0; i < argv.length; i++) {
-    const v = argv[i];
-    if (v === '-g' || v === '--global') a.scope = 'global';
-    else if (v === '--provider') { a.provider = argv[++i]; a.explicit = true; }
-    else if (v === '--plugin') { a.plugin = argv[++i]; a.explicit = true; }
-    else if (v === '--target') a.target = argv[++i];
-    else if (v === '--as-plugin') { a.mode = 'plugin'; a.explicit = true; } // claude: cài như plugin (qua `claude` CLI)
-    else if (v.startsWith('--provider=')) { a.provider = v.slice(11); a.explicit = true; }
-    else if (v.startsWith('--plugin=')) { a.plugin = v.slice(9); a.explicit = true; }
-    else if (v.startsWith('--target=')) a.target = v.slice(9);
-    else if (v === '-h' || v === '--help') a.help = true;
-    else a._.push(v);
-  }
-  return a;
 }
 
 function runBuild(extra = []) {
@@ -156,6 +139,8 @@ TÙY CHỌN
   --provider <p|all>        công cụ đích: ${PROVIDERS.join(', ')}, hoặc all (mặc định all)
   --plugin <id|all>         plugin cần cài/build: ${plugins.length ? plugins.join(', ') : '<id>'}, hoặc all (mặc định all)
                             — 'core' (nguyên tắc nền tảng) LUÔN tự đi kèm
+  --skill <a,b>             (chỉ install/uninstall) chọn skill LẺ dạng 'plugin/skill' hoặc tên
+                            skill; nhiều skill ngăn bằng dấu phẩy. Khác --plugin (cả plugin).
   --as-plugin               (chỉ 'install', riêng claude) cài như PLUGIN THẬT qua "claude plugin"
                             (đăng ký marketplace + namespaced <id>:<skill>) thay vì copy skills phẳng
                             vào .claude/skills/. Cần có CLI "claude" trên PATH. provider khác giữ skills.
@@ -171,6 +156,8 @@ VÍ DỤ
   aip                                    # wizard
   aip install                            # mọi provider + mọi plugin -> project
   aip install --provider claude --plugin backend
+  aip install --provider claude --skill backend/backend-init,core/git-workflow
+  aip uninstall --skill backend/backend-testing
   aip install --provider claude --as-plugin        # cài claude như PLUGIN qua "claude plugin"
   aip install --provider cursor -g       # cài global cho mọi project
   aip check                              # xem đã cài gì (project)
@@ -209,10 +196,10 @@ async function main() {
     case 'list':
       return runBuild(['--list']);
     case 'install':
-      return reportInstall(install({ providers: args.provider, plugins: args.plugin, scope: args.scope, mode: args.mode }));
+      return reportInstall(install({ providers: args.provider, plugins: args.plugin, skills: args.skill, scope: args.scope, mode: args.mode }));
     case 'remove':
     case 'uninstall': {
-      const r = uninstall({ providers: args.provider, plugins: args.plugin, scope: args.scope });
+      const r = uninstall({ providers: args.provider, plugins: args.plugin, skills: args.skill, scope: args.scope });
       console.log(`✓ Đã gỡ ${r.removed} file (scope=${r.scope}) tại ${r.root}.`);
       return;
     }
