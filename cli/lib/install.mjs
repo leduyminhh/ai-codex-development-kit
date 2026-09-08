@@ -602,26 +602,40 @@ function uninstallEntries(m, root, predicate) {
   return removed;
 }
 
-/** Gỡ cài đặt theo filter provider/plugin/scope. Gỡ LẺ plugin: khi entry còn plugin khác,
- *  gỡ nguyên entry rồi cài lại phần GIỮ (tận dụng install cộng dồn) — vì manifest không tách
- *  file theo plugin. */
-export function uninstall({ providers, plugins, scope = 'project' }) {
+/** Gỡ cài đặt theo filter provider/plugin/skill/scope. Gỡ LẺ (plugin hoặc skill): khi entry còn
+ *  phần khác, gỡ nguyên entry rồi cài lại phần GIỮ (tận dụng install cộng dồn) — vì manifest không
+ *  tách file theo skill. Phần GIỮ dựng từ SELECTION NGUỒN của entry (plugins→allSkillsOf + skills lẻ),
+ *  KHÔNG dùng effectiveSkills: tập hiệu lực chứa generated `<plugin>-principles` không hợp lệ với
+ *  resolveSelection nên sẽ ném khi cài lại. core/principles giữ nguyên trong remaining khi core còn —
+ *  resolveSelection tự quy về whole-core, install lại tự ép core/principles. */
+export function uninstall({ providers, plugins, skills, scope = 'project' }) {
   const provs = !providers || providers === 'all' ? null : (Array.isArray(providers) ? providers : [providers]);
   const plugSel = !plugins || plugins === 'all' ? null : (Array.isArray(plugins) ? plugins : [plugins]);
+  const skillSel = !skills ? null : (Array.isArray(skills) ? skills : [skills]);
   const root = scopeRoot(scope);
   const m = readManifest(scope);
   const matched = (e) =>
     (!provs || provs.includes(e.provider)) &&
-    (!plugSel || e.plugins.some((p) => plugSel.includes(p)));
+    (!plugSel || (e.plugins || []).some((p) => plugSel.includes(p))
+      || (e.skills || []).some((s) => plugSel.includes(s.split('/')[0]))) &&
+    (!skillSel || [...effectiveSkills(e)].some((s) => skillSel.includes(s)));
 
-  // Khi gỡ LẺ (chỉ định plugin): những plugin còn giữ lại của mỗi entry khớp → cài lại sau khi gỡ.
+  // Gỡ LẺ (plugin/skill): tính phần GIỮ LẠI của mỗi entry khớp → cài lại sau khi gỡ nguyên entry.
   const reinstall = [];
-  if (plugSel) {
+  if (plugSel || skillSel) {
+    const removeSkills = new Set(skillSel || []);
+    const removePlugins = new Set(plugSel || []);
     for (const e of m.installs.filter(matched)) {
-      const remaining = e.plugins.filter((p) => !plugSel.includes(p));
-      if (remaining.length) {
-        reinstall.push({ provider: e.provider, plugins: remaining, scope, mode: e.mode === 'plugin' ? 'plugin' : 'skills' });
+      if (e.mode === 'plugin') { // plugin-mode chỉ gỡ theo plugin (uỷ `claude` CLI); giữ ngữ nghĩa cũ
+        const remaining = (e.plugins || []).filter((p) => !removePlugins.has(p));
+        if (remaining.length) reinstall.push({ provider: e.provider, plugins: remaining, scope, mode: 'plugin' });
+        continue;
       }
+      const srcSel = new Set(e.skills || []);                        // selection nguồn hợp lệ của entry
+      for (const p of (e.plugins || [])) for (const s of allSkillsOf(p)) srcSel.add(s);
+      const remaining = [...srcSel].filter((s) =>
+        !removeSkills.has(s) && !removePlugins.has(s.split('/')[0]));
+      if (remaining.length) reinstall.push({ provider: e.provider, skills: remaining, scope, mode: 'skills' });
     }
   }
 
@@ -647,9 +661,12 @@ export function check({ scope = 'project' } = {}) {
           marketplace: e.marketplace, files: n, present: n, installedAt: e.installedAt };
       }
       const all = [...e.files, ...(e.links || [])];
+      // skills = tập hiệu lực (gồm generated <plugin>-principles) — chỉ để hiển thị/preselect wizard;
+      // cây wizard bỏ qua id generated không có trong catalog.
       return {
         provider: e.provider,
         plugins: e.plugins,
+        skills: [...effectiveSkills(e)],
         files: all.length,
         present: all.filter((rel) => fs.existsSync(path.join(root, rel))).length,
         installedAt: e.installedAt,
@@ -709,7 +726,10 @@ export function update({ scope = 'project', pull = true } = {}) {
       // Trước đây symlink-install đi nhánh "pass" (chỉ rebuild build/, link cũ tự tươi) nên BỎ SÓT
       // SKILL MỚI thêm sau lần cài đầu (vd core/git-workflow): không có link nào cho skill mới. Re-install
       // gỡ link cũ rồi re-link TOÀN BỘ theo build (idempotent) + tạo link cho skill mới; entry copy re-copy.
-      install({ providers: [e.provider], plugins: e.plugins, scope, mode: 'skills' });
+      // Dùng SELECTION NGUỒN (plugins khối + skills lẻ) — hợp lệ với resolveSelection. Khối `e.plugins`
+      // (kể cả core) mở rộng lại theo kit HIỆN TẠI → nhận skill mới; `e.skills` lẻ giữ cố định, KHÔNG
+      // kéo skill anh em.
+      install({ providers: [e.provider], plugins: e.plugins || [], skills: e.skills || [], scope, mode: 'skills' });
       entries.push({ provider: e.provider, plugins: e.plugins, action: 'reinstall' });
     }
   }

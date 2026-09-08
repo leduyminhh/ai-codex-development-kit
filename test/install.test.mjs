@@ -221,6 +221,31 @@ ok(claudeCliScope('global') === 'user' && claudeCliScope('project') === 'project
   process.env.AIE_INSTALL_ROOT = TMP;
 }
 
+// ── skill-granular: gỡ LẺ 1 skill của một khối → giữ các skill còn lại ────────
+// Khối backend "vỡ" thành skills lẻ (8 skill trừ 1); core vẫn whole (default-whole-core) nên
+// git-workflow + principles còn nguyên.
+{
+  const TMP_RU = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-skill-rm-'));
+  process.env.AIE_INSTALL_ROOT = TMP_RU;
+  install({ providers: 'claude', plugins: 'backend', scope: 'project' }); // nguyên khối
+  uninstall({ providers: 'claude', skills: ['backend/backend-testing'], scope: 'project' });
+  const E = (rel) => fs.existsSync(path.join(TMP_RU, rel));
+  ok(!E('.claude/skills/backend-testing/SKILL.md'), 'gỡ-lẻ: backend-testing đã gỡ');
+  ok(E('.claude/skills/backend-init/SKILL.md'), 'gỡ-lẻ: backend-init còn lại');
+  ok(E('.claude/skills/backend-principles/SKILL.md'), 'gỡ-lẻ: baseline backend-principles còn');
+  ok(E('.claude/skills/principles/SKILL.md') && E('.claude/skills/git-workflow/SKILL.md'),
+    'gỡ-lẻ: core whole vẫn còn (principles + git-workflow)');
+  const mf = JSON.parse(fs.readFileSync(path.join(TMP_RU, '.ai-engineering/manifest.json'), 'utf8'));
+  const ce = mf.installs.find((e) => e.provider === 'claude');
+  ok(!ce.plugins.includes('backend') && ce.skills.includes('backend/backend-init')
+    && !ce.skills.includes('backend/backend-testing'),
+    'gỡ-lẻ: khối backend "vỡ" thành skills lẻ, hết backend-testing');
+  ok(ce.plugins.includes('core'),
+    'gỡ-lẻ: core vẫn whole trong manifest (default-whole-core giữ nguyên)');
+  fs.rmSync(TMP_RU, { recursive: true, force: true });
+  process.env.AIE_INSTALL_ROOT = TMP;
+}
+
 // ── update: empty manifest + reinstall (tái quét) + regression phát hiện SKILL MỚI ──────────
 {
   // empty manifest → update không làm gì (pull=false: không đụng git)
@@ -256,6 +281,24 @@ ok(claudeCliScope('global') === 'user' && claudeCliScope('project') === 'project
   fs.rmSync(TMP_NEW, { recursive: true, force: true });
 
   process.env.AIE_INSTALL_ROOT = TMP; // khôi phục cho round-trip chính
+}
+
+// ── update: khối nhận skill MỚI; skill-lẻ KHÔNG kéo anh em; check trả skills ──
+{
+  const TMP_U2 = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-upd-skill-'));
+  process.env.AIE_INSTALL_ROOT = TMP_U2;
+  install({ providers: 'claude', skills: ['backend/backend-init'], scope: 'project' }); // cài LẺ
+  const chk = check({ scope: 'project' }).installs.find((e) => e.provider === 'claude');
+  ok(Array.isArray(chk.skills) && chk.skills.includes('backend/backend-init'),
+    'check: trả danh sách skills hiệu lực');
+  // update: skill-lẻ chỉ refresh, KHÔNG kéo backend-testing (skill anh em)
+  update({ scope: 'project', pull: false });
+  ok(!fs.existsSync(path.join(TMP_U2, '.claude/skills/backend-testing/SKILL.md')),
+    'update skill-lẻ: KHÔNG tự kéo skill anh em');
+  ok(fs.existsSync(path.join(TMP_U2, '.claude/skills/backend-init/SKILL.md')),
+    'update skill-lẻ: skill đã chọn vẫn còn (refresh)');
+  fs.rmSync(TMP_U2, { recursive: true, force: true });
+  process.env.AIE_INSTALL_ROOT = TMP;
 }
 
 // ── narrowing: chọn LẺ core/principles → KHÔNG kéo git-workflow (Q2) ──────────
