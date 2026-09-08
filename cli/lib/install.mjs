@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync, execSync } from 'node:child_process';
-import { REPO_ROOT, loadPlugins, loadMarketplace } from './plugins.mjs';
+import { REPO_ROOT, loadPlugins, loadCore, loadMarketplace } from './plugins.mjs';
 import { scopeRoot, manifestPath, PROVIDER_LAYOUT, PROVIDERS } from './paths.mjs';
 import { pack } from './pack.mjs';
 import { BEGIN as MB_BEGIN, END as MB_END, mergeManagedBlock, removeManagedBlock } from './managed-block.mjs';
@@ -289,6 +289,86 @@ function resolvePlugins(pluginSel) {
   const bad = ids.filter((id) => !all.includes(id));
   if (bad.length) throw new Error(`Plugin không tồn tại: ${bad.join(', ')} (có: ${all.join(', ')})`);
   return ids;
+}
+
+/** Danh mục skill NGUỒN theo plugin (core đầu tiên). KHÔNG gồm generated <id>-principles.
+ *  core mang thêm baseline `core/principles` (adapter sinh từ core.principles, không có trong loadSkills). */
+export function skillCatalog() {
+  const core = loadCore();
+  const plugins = [core, ...loadPlugins()].map((p) => ({
+    id: p.id,
+    skillIds: [
+      ...(p.id === 'core' ? ['core/principles'] : []),
+      ...p.stages.map((s) => `${p.id}/${s.id}`),
+    ],
+  }));
+  return { plugins };
+}
+/** Các `plugin/skill` NGUỒN của một plugin (rỗng nếu plugin không tồn tại). */
+export function allSkillsOf(pluginId) {
+  const p = skillCatalog().plugins.find((x) => x.id === pluginId);
+  return p ? [...p.skillIds] : [];
+}
+
+/** Chuẩn hoá lựa chọn → {plugins, skills}. plugins=khối; skills=lẻ (plugin/skill). Ném nếu id lạ. */
+export function resolveSelection({ plugins = [], skills = [] } = {}) {
+  const cat = skillCatalog();
+  const validPlugins = new Set(cat.plugins.map((p) => p.id));
+  const bySkill = new Map();          // 'plugin/skill' -> true
+  const byBare = new Map();           // 'skill' -> ['plugin/skill', ...]
+  for (const p of cat.plugins) for (const sid of p.skillIds) {
+    bySkill.set(sid, true);
+    const bare = sid.split('/')[1];
+    byBare.set(bare, [...(byBare.get(bare) || []), sid]);
+  }
+  const pluginSel = (plugins === 'all')
+    ? cat.plugins.map((p) => p.id)
+    : (Array.isArray(plugins) ? plugins : (plugins ? [plugins] : []));
+  const badP = pluginSel.filter((id) => !validPlugins.has(id));
+  if (badP.length) throw new Error(`Plugin không tồn tại: ${badP.join(', ')} (có: ${[...validPlugins].join(', ')})`);
+
+  const skillSel = new Set();
+  const rawSkills = Array.isArray(skills) ? skills : (skills ? [skills] : []);
+  for (const raw of rawSkills) {
+    if (raw.includes('/')) {
+      if (!bySkill.has(raw)) throw new Error(`Skill không tồn tại: ${raw}`);
+      skillSel.add(raw);
+    } else {
+      const cands = byBare.get(raw);
+      if (!cands) throw new Error(`Skill không tồn tại: ${raw} (có: ${[...bySkill.keys()].join(', ')})`);
+      if (cands.length > 1) throw new Error(`Skill "${raw}" mơ hồ, ghi rõ plugin/skill: ${cands.join(', ')}`);
+      skillSel.add(cands[0]);
+    }
+  }
+  // quy về khối: plugin có mọi con đã chọn (qua --plugin HOẶC đủ skill lẻ) → plugins
+  const wholeSet = new Set(pluginSel);
+  for (const p of cat.plugins) {
+    if (wholeSet.has(p.id)) continue;
+    if (p.skillIds.length && p.skillIds.every((sid) => skillSel.has(sid))) wholeSet.add(p.id);
+  }
+  // dedup: bỏ skill đã nằm trong khối
+  const coveredByWhole = new Set();
+  for (const id of wholeSet) for (const sid of allSkillsOf(id)) coveredByWhole.add(sid);
+  const outSkills = [...skillSel].filter((s) => !coveredByWhole.has(s)).sort();
+  return { plugins: [...wholeSet].sort(), skills: outSkills };
+}
+
+/** Tập `plugin/skill` để LỌC đặt file: core/principles ép bật; khối mở rộng theo kit HIỆN TẠI;
+ *  skill lẻ cố định; MỌI plugin active kèm generated `<id>-principles` (baseline, không có trong loadSkills). */
+export function effectiveSkills(entry) {
+  const out = new Set(['core/principles']);
+  const plugins = entry.plugins || [];
+  const skills = entry.skills || [];
+  for (const p of plugins) for (const sid of allSkillsOf(p)) out.add(sid);
+  for (const sid of skills) out.add(sid);
+  // plugin active (có ≥1 skill hiệu lực HOẶC là khối) → kèm generated <id>-principles
+  const activePlugins = new Set(plugins);
+  for (const sid of out) activePlugins.add(sid.split('/')[0]);
+  for (const pid of activePlugins) {
+    if (pid === 'core') continue; // core baseline là 'principles' (đã ép ở trên)
+    out.add(`${pid}/${pid}-principles`);
+  }
+  return out;
 }
 
 // ── copy theo layout từng provider ──────────────────────────────────────────

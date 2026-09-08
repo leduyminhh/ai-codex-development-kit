@@ -11,7 +11,9 @@ const isLink = (p) => { try { fs.readlinkSync(p); return true; } catch { return 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-test-'));
 process.env.AIE_INSTALL_ROOT = TMP;
 
-const { install, uninstall, update, check, linkDisabledForRoot, claudePluginCommands, claudePluginRefreshCommands, claudeCliScope, marketplacesToRemove } =
+const { install, uninstall, update, check, linkDisabledForRoot, claudePluginCommands,
+  claudePluginRefreshCommands, claudeCliScope, marketplacesToRemove,
+  skillCatalog, allSkillsOf, resolveSelection, effectiveSkills } =
   await import('../cli/lib/install.mjs');
 const { zipBuffer, coworkSkillIds, pack } = await import('../cli/lib/pack.mjs');
 
@@ -102,6 +104,69 @@ ok(claudeCliScope('global') === 'user' && claudeCliScope('project') === 'project
   const rem2 = [{ mode: 'plugin', marketplace: MKT, plugins: ['backend'] }, { mode: 'plugin', marketplace: MKT, plugins: ['frontend'] }];
   ok(marketplacesToRemove(rem2, []).size === 1 && marketplacesToRemove(rem2, []).has(MKT),
     'mktToRemove: nhiều entry cùng marketplace → Set gộp 1 lần');
+}
+
+// ── unit: skillCatalog + allSkillsOf (PURE) ──────────────────────────────────
+{
+  const cat = skillCatalog();
+  ok(cat.plugins[0].id === 'core', 'skillCatalog: core đứng đầu');
+  ok(cat.plugins.some((p) => p.id === 'backend'), 'skillCatalog: có backend');
+  const be = cat.plugins.find((p) => p.id === 'backend');
+  ok(be.skillIds.includes('backend/backend-init'), 'skillCatalog: backend gồm backend/backend-init');
+  ok(!be.skillIds.some((s) => s.endsWith('/backend-principles')),
+    'skillCatalog: KHÔNG liệt kê generated backend-principles');
+  ok(allSkillsOf('backend').includes('backend/backend-init')
+    && allSkillsOf('backend').every((s) => s.startsWith('backend/')),
+    'allSkillsOf: trả plugin/skill của đúng plugin');
+  ok(allSkillsOf('core').includes('core/principles'), 'allSkillsOf: core gồm principles');
+}
+
+// ── unit: resolveSelection (PURE) ────────────────────────────────────────────
+{
+  // chọn đủ mọi con của một plugin → quy về khối (plugins), skills rỗng phần đó
+  const whole = resolveSelection({ skills: allSkillsOf('backend') });
+  ok(whole.plugins.includes('backend') && !whole.skills.some((s) => s.startsWith('backend/')),
+    'resolveSelection: đủ mọi con → plugins=[backend], skills không lặp lại con backend');
+  // chọn một phần → skills lẻ, không vào plugins
+  const partial = resolveSelection({ skills: ['backend/backend-init'] });
+  ok(!partial.plugins.includes('backend') && partial.skills.includes('backend/backend-init'),
+    'resolveSelection: một phần → skills lẻ, không nguyên khối');
+  // --plugin nguyên khối
+  const byPlugin = resolveSelection({ plugins: ['frontend'] });
+  ok(byPlugin.plugins.includes('frontend'), 'resolveSelection: --plugin → plugins');
+  // skill trần suy plugin duy nhất
+  const bare = resolveSelection({ skills: ['backend-init'] });
+  ok(bare.skills.includes('backend/backend-init') || bare.plugins.includes('backend'),
+    'resolveSelection: skill trần suy được plugin');
+  // dedup: skill nằm trong khối đã chọn → bỏ khỏi skills
+  const dd = resolveSelection({ plugins: ['backend'], skills: ['backend/backend-init'] });
+  ok(!dd.skills.includes('backend/backend-init'),
+    'resolveSelection: skill đã trong khối → dedup khỏi skills');
+  // id lạ → ném
+  let threw = false;
+  try { resolveSelection({ skills: ['backend/khong-ton-tai'] }); } catch { threw = true; }
+  ok(threw, 'resolveSelection: skill không tồn tại → ném lỗi');
+}
+
+// ── unit: effectiveSkills (PURE) — ép core/principles + generated <id>-principles + compat ──
+{
+  // entry nguyên khối backend
+  const eWhole = effectiveSkills({ plugins: ['backend'], skills: [] });
+  ok(eWhole.has('core/principles'), 'effective: LUÔN có core/principles (ép bật)');
+  ok(eWhole.has('backend/backend-init'), 'effective: gồm skill nguồn của khối backend');
+  ok(eWhole.has('backend/backend-principles'),
+    'effective: khối backend → kèm generated backend-principles (baseline)');
+  // entry skill lẻ: chỉ 1 skill của backend
+  const ePartial = effectiveSkills({ plugins: [], skills: ['backend/backend-init'] });
+  ok(ePartial.has('backend/backend-init'), 'effective: có skill lẻ đã chọn');
+  ok(ePartial.has('backend/backend-principles'),
+    'effective: plugin active dù chỉ 1 skill → vẫn kèm backend-principles');
+  ok(!ePartial.has('backend/backend-testing'), 'effective: skill lẻ KHÔNG kéo skill anh em');
+  ok(ePartial.has('core/principles'), 'effective: vẫn ép core/principles');
+  // backward-compat: entry cũ chỉ có plugins, không field skills
+  const eCompat = effectiveSkills({ plugins: ['frontend'] });
+  ok(eCompat.has('frontend/frontend-init') && eCompat.has('frontend/frontend-principles'),
+    'effective: entry cũ (thiếu skills) mở rộng nguyên khối như hôm nay');
 }
 
 // ── additive: cài cùng provider 2 lần -> CỘNG DỒN plugin (không thay thế) ─────
