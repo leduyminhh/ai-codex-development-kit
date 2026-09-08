@@ -13,7 +13,7 @@ process.env.AIE_INSTALL_ROOT = TMP;
 
 const { install, uninstall, update, check, linkDisabledForRoot, claudePluginCommands,
   claudePluginRefreshCommands, claudeCliScope, marketplacesToRemove,
-  skillCatalog, allSkillsOf, resolveSelection, effectiveSkills } =
+  skillCatalog, allSkillsOf, resolveSelection, effectiveSkills, pluginsFromSelection } =
   await import('../cli/lib/install.mjs');
 const { zipBuffer, coworkSkillIds, pack } = await import('../cli/lib/pack.mjs');
 
@@ -146,6 +146,13 @@ ok(claudeCliScope('global') === 'user' && claudeCliScope('project') === 'project
   let threw = false;
   try { resolveSelection({ skills: ['backend/khong-ton-tai'] }); } catch { threw = true; }
   ok(threw, 'resolveSelection: skill không tồn tại → ném lỗi');
+}
+
+// ── plugin-mode: suy tập plugin từ skill lẻ (PURE) ───────────────────────────
+{
+  const ids = pluginsFromSelection({ plugins: ['frontend'], skills: ['backend/backend-init'] });
+  ok(ids.includes('frontend') && ids.includes('backend') && new Set(ids).size === ids.length,
+    'pluginsFromSelection: gộp plugin của khối + plugin của skill lẻ, dedup');
 }
 
 // ── unit: effectiveSkills (PURE) — ép core/principles + generated <id>-principles + compat ──

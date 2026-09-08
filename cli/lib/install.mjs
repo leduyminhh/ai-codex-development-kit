@@ -282,18 +282,6 @@ function uninstallClaudePlugin(entry, { removeMarketplace = true } = {}) {
 // ── plugin resolution ────────────────────────────────────────────────────────
 export function knownPluginIds() { return loadPlugins().map((p) => p.id); }
 
-function resolvePlugins(pluginSel) {
-  const all = knownPluginIds();
-  if (!pluginSel || pluginSel === 'all') return all;
-  const ids = Array.isArray(pluginSel) ? pluginSel : [pluginSel];
-  // 'core' là đơn vị chọn hợp lệ (resolveSelection tự thêm khi mặc định whole-core) → có thể xuất
-  // hiện trong plugins của manifest và đi vào nhánh reinstall; chấp nhận để đồng nhất với skillCatalog.
-  const valid = new Set([...all, 'core']);
-  const bad = ids.filter((id) => !valid.has(id));
-  if (bad.length) throw new Error(`Plugin không tồn tại: ${bad.join(', ')} (có: ${all.join(', ')})`);
-  return ids;
-}
-
 /** Danh mục skill NGUỒN theo plugin (core đầu tiên). KHÔNG gồm generated <id>-principles.
  *  core mang thêm baseline `core/principles` (adapter sinh từ core.principles, không có trong loadSkills). */
 export function skillCatalog() {
@@ -358,6 +346,13 @@ export function resolveSelection({ plugins = [], skills = [] } = {}) {
   for (const id of wholeSet) for (const sid of allSkillsOf(id)) coveredByWhole.add(sid);
   const outSkills = [...skillSel].filter((s) => !coveredByWhole.has(s)).sort();
   return { plugins: [...wholeSet].sort(), skills: outSkills };
+}
+
+/** PURE: tập plugin (dedup) suy từ lựa chọn — dùng cho claude plugin-mode (whole-plugin only). */
+export function pluginsFromSelection({ plugins = [], skills = [] } = {}) {
+  const out = new Set(plugins);
+  for (const s of skills) out.add(s.split('/')[0]);
+  return [...out];
 }
 
 /** Tập `plugin/skill` để LỌC đặt file: core/principles ép bật; khối mở rộng theo kit HIỆN TẠI;
@@ -527,7 +522,6 @@ export function install({ providers, plugins, skills, scope = 'project', mode = 
     console.warn('[aip] codex nạp native skills từ ~/.codex/skills (mức user); cài scope=project ' +
       'thường KHÔNG được codex đọc — cân nhắc cài global: aip install --provider codex -g');
   }
-  const pluginIds = resolvePlugins(plugins);
   const root = scopeRoot(scope);
   const m = readManifest(scope);
   const results = [];
@@ -535,9 +529,17 @@ export function install({ providers, plugins, skills, scope = 'project', mode = 
     ensureBuilt(provider);
 
     if (provider === 'claude' && mode === 'plugin') {
+      // plugin-mode CHỈ cài NGUYÊN plugin (claude CLI không tách skill). Suy tập plugin DOMAIN từ
+      // lựa chọn (khối + plugin của skill lẻ); loại core — core tự kéo qua dependency, không cài tường minh.
+      const sel = resolveSelection({ plugins, skills });
+      const inferred = pluginsFromSelection(sel).filter((id) => id !== 'core');
+      if ((sel.skills || []).length) {
+        console.warn('[aip] claude --as-plugin cài NGUYÊN plugin (không tách skill). ' +
+          `Cài cả: ${inferred.join(', ')}. Dùng mode skills nếu muốn chọn lẻ.`);
+      }
       // CỘNG DỒN: gộp với plugin đã cài cùng mode (install thêm, không thay thế); cùng plugin → refresh.
       const prev = m.installs.find((e) => e.provider === 'claude' && e.mode === 'plugin');
-      const effPlugins = prev ? [...new Set([...(prev.plugins || []), ...pluginIds])] : pluginIds;
+      const effPlugins = prev ? [...new Set([...(prev.plugins || []), ...inferred])] : inferred;
       uninstallEntries(m, root, (e) => e.provider === 'claude'); // gỡ bản claude cũ (skills HOẶC plugin)
       const info = installClaudePlugin({ pluginIds: effPlugins, scope });
       const managed = applyManagedBlock(root, instructionFiles('claude', scope));
