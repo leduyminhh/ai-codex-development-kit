@@ -258,6 +258,18 @@ ok(claudeCliScope('global') === 'user' && claudeCliScope('project') === 'project
   process.env.AIE_INSTALL_ROOT = TMP; // khôi phục cho round-trip chính
 }
 
+// ── narrowing: chọn LẺ core/principles → KHÔNG kéo git-workflow (Q2) ──────────
+{
+  const TMP_NW = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-narrow-'));
+  process.env.AIE_INSTALL_ROOT = TMP_NW;
+  install({ providers: 'claude', skills: ['core/principles'], scope: 'project' });
+  const E = (rel) => fs.existsSync(path.join(TMP_NW, rel));
+  ok(E('.claude/skills/principles/SKILL.md'), 'narrow: core/principles có');
+  ok(!E('.claude/skills/git-workflow/SKILL.md'), 'narrow: git-workflow KHÔNG cài khi chọn lẻ core/principles');
+  fs.rmSync(TMP_NW, { recursive: true, force: true });
+  process.env.AIE_INSTALL_ROOT = TMP;
+}
+
 try {
   // 1. install claude + backend (project)
   const r1 = install({ providers: 'claude', plugins: 'backend', scope: 'project' });

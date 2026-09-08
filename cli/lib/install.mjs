@@ -286,7 +286,10 @@ function resolvePlugins(pluginSel) {
   const all = knownPluginIds();
   if (!pluginSel || pluginSel === 'all') return all;
   const ids = Array.isArray(pluginSel) ? pluginSel : [pluginSel];
-  const bad = ids.filter((id) => !all.includes(id));
+  // 'core' là đơn vị chọn hợp lệ (resolveSelection tự thêm khi mặc định whole-core) → có thể xuất
+  // hiện trong plugins của manifest và đi vào nhánh reinstall; chấp nhận để đồng nhất với skillCatalog.
+  const valid = new Set([...all, 'core']);
+  const bad = ids.filter((id) => !valid.has(id));
   if (bad.length) throw new Error(`Plugin không tồn tại: ${bad.join(', ')} (có: ${all.join(', ')})`);
   return ids;
 }
@@ -346,6 +349,10 @@ export function resolveSelection({ plugins = [], skills = [] } = {}) {
     if (wholeSet.has(p.id)) continue;
     if (p.skillIds.length && p.skillIds.every((sid) => skillSel.has(sid))) wholeSet.add(p.id);
   }
+  // Mặc định: nếu người dùng KHÔNG nói gì về core → nhận whole core baseline (principles + git-workflow).
+  // Wizard luôn phát core/principles (locked) → hasExplicitCore=true → narrow được bằng bỏ tick git-workflow.
+  const hasExplicitCore = wholeSet.has('core') || [...skillSel].some((s) => s.startsWith('core/'));
+  if (!hasExplicitCore) wholeSet.add('core');
   // dedup: bỏ skill đã nằm trong khối
   const coveredByWhole = new Set();
   for (const id of wholeSet) for (const sid of allSkillsOf(id)) coveredByWhole.add(sid);
@@ -410,10 +417,9 @@ function placeEntry(src, dest, ctx) {
 }
 
 /**
- * Đặt file từ BUILD OUTPUT vào scope root, LỌC theo tập skill hiệu lực `effSetArg`
- * (`Set<'plugin/skill'>` từ effectiveSkills). Chỉ skill-dir có id trong tập mới được đặt.
- * core LUÔN nguyên khối (baseline): mọi skill nguồn của core được ép vào tập lọc — git-workflow
- * (skill dùng chung, KHÔNG do adapter sinh nên effectiveSkills chỉ ép core/principles) vẫn tới đích.
+ * Đặt file từ BUILD OUTPUT vào scope root, LỌC thuần theo tập skill hiệu lực `effSetArg`
+ * (`Set<'plugin/skill'>` từ effectiveSkills). Chỉ skill-dir có id trong tập mới được đặt — KHÔNG
+ * tự ép core: chính sách "mặc định nhận whole core / narrow được bằng chọn lẻ" nằm ở resolveSelection.
  */
 function installOne(provider, effSetArg, scope) {
   const layout = PROVIDER_LAYOUT[provider];
@@ -422,8 +428,7 @@ function installOne(provider, effSetArg, scope) {
   const pbuild = path.join(BUILD_DIR, provider);
   if (!fs.existsSync(pbuild)) throw new Error(`Chưa build ${provider} (build/${provider} không có).`);
   const ctx = { files: [], links: [], useLink: USE_LINK, warned: false, root };
-  const effSet = new Set(effSetArg);
-  for (const s of allSkillsOf('core')) effSet.add(s); // core = baseline, không à-la-carte
+  const effSet = new Set(effSetArg); // LỌC thuần: chỉ đặt skill-dir có id trong tập (không tự ép core)
   const pluginActive = (id) => { for (const s of effSet) if (s.startsWith(`${id}/`)) return true; return false; };
 
   if (layout.kind === 'claude') {
