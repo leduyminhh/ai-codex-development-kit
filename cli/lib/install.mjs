@@ -628,14 +628,14 @@ export function uninstall({ providers, plugins, skills, scope = 'project' }) {
     for (const e of m.installs.filter(matched)) {
       if (e.mode === 'plugin') { // plugin-mode chỉ gỡ theo plugin (uỷ `claude` CLI); giữ ngữ nghĩa cũ
         const remaining = (e.plugins || []).filter((p) => !removePlugins.has(p));
-        if (remaining.length) reinstall.push({ provider: e.provider, plugins: remaining, scope, mode: 'plugin' });
+        if (remaining.length) reinstall.push({ providers: [e.provider], plugins: remaining, scope, mode: 'plugin' });
         continue;
       }
       const srcSel = new Set(e.skills || []);                        // selection nguồn hợp lệ của entry
       for (const p of (e.plugins || [])) for (const s of allSkillsOf(p)) srcSel.add(s);
       const remaining = [...srcSel].filter((s) =>
         !removeSkills.has(s) && !removePlugins.has(s.split('/')[0]));
-      if (remaining.length) reinstall.push({ provider: e.provider, skills: remaining, scope, mode: 'skills' });
+      if (remaining.length) reinstall.push({ providers: [e.provider], skills: remaining, scope, mode: 'skills' });
     }
   }
 

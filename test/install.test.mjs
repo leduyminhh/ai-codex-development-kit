@@ -242,6 +242,10 @@ ok(claudeCliScope('global') === 'user' && claudeCliScope('project') === 'project
     'gỡ-lẻ: khối backend "vỡ" thành skills lẻ, hết backend-testing');
   ok(ce.plugins.includes('core'),
     'gỡ-lẻ: core vẫn whole trong manifest (default-whole-core giữ nguyên)');
+  ok(mf.installs.length === 1 && mf.installs[0].provider === 'claude',
+    'gỡ-lẻ: KHÔNG rò rỉ sang provider khác (chỉ còn entry claude)');
+  ok(!E('.cursor/skills/backend-init/SKILL.md') && !E('.codex/skills/backend-init/SKILL.md'),
+    'gỡ-lẻ: không tạo cây .cursor/.codex ngoài ý muốn');
   fs.rmSync(TMP_RU, { recursive: true, force: true });
   process.env.AIE_INSTALL_ROOT = TMP;
 }
