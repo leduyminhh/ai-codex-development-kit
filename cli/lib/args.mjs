@@ -12,12 +12,12 @@ export function parse(argv) {
     const v = argv[i];
     if (v === '-g' || v === '--global') a.scope = 'global';
     else if (v === '--provider') { a.provider = argv[++i]; a.explicit = true; }
-    else if (v === '--plugin') { a.plugin = argv[++i]; a.explicit = true; }
+    else if (v === '--plugin') { a.plugin = argv[++i]; a.explicit = true; a.pluginExplicit = true; }
     else if (v === '--skill') { a.skill = csv(argv[++i]); a.explicit = true; }
     else if (v === '--target') a.target = argv[++i];
     else if (v === '--as-plugin') { a.mode = 'plugin'; a.explicit = true; } // claude: cài như plugin (qua `claude` CLI)
     else if (v.startsWith('--provider=')) { a.provider = v.slice(11); a.explicit = true; }
-    else if (v.startsWith('--plugin=')) { a.plugin = v.slice(9); a.explicit = true; }
+    else if (v.startsWith('--plugin=')) { a.plugin = v.slice(9); a.explicit = true; a.pluginExplicit = true; }
     else if (v.startsWith('--skill=')) { a.skill = csv(v.slice(8)); a.explicit = true; }
     else if (v.startsWith('--target=')) a.target = v.slice(9);
     else if (v === '-h' || v === '--help') a.help = true;

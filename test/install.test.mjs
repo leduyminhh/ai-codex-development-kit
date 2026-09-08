@@ -16,6 +16,7 @@ const { install, uninstall, update, check, linkDisabledForRoot, claudePluginComm
   skillCatalog, allSkillsOf, resolveSelection, effectiveSkills, pluginsFromSelection } =
   await import('../cli/lib/install.mjs');
 const { zipBuffer, coworkSkillIds, pack } = await import('../cli/lib/pack.mjs');
+const { parse } = await import('../cli/lib/args.mjs');
 
 let pass = 0;
 const fails = [];
@@ -321,6 +322,21 @@ ok(claudeCliScope('global') === 'user' && claudeCliScope('project') === 'project
   ok(E('.claude/skills/principles/SKILL.md'), 'narrow: core/principles có');
   ok(!E('.claude/skills/git-workflow/SKILL.md'), 'narrow: git-workflow KHÔNG cài khi chọn lẻ core/principles');
   fs.rmSync(TMP_NW, { recursive: true, force: true });
+  process.env.AIE_INSTALL_ROOT = TMP;
+}
+
+// ── CLI seam: --skill KHÔNG kèm --plugin → chỉ cài skill đó, KHÔNG cài mọi plugin ──
+{
+  const TMP_CLI = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-cli-'));
+  process.env.AIE_INSTALL_ROOT = TMP_CLI;
+  const a = parse(['install', '--provider', 'claude', '--skill', 'backend/backend-init']);
+  const plugins = (a.skill.length && !a.pluginExplicit) ? [] : a.plugin;
+  install({ providers: a.provider, plugins, skills: a.skill, scope: 'project', mode: a.mode });
+  const E = (rel) => fs.existsSync(path.join(TMP_CLI, rel));
+  ok(E('.claude/skills/backend-init/SKILL.md'), 'cli-skill: backend-init được cài');
+  ok(!E('.claude/skills/frontend-init/SKILL.md'), 'cli-skill: KHÔNG cài frontend (không lan ra mọi plugin)');
+  ok(E('.claude/skills/principles/SKILL.md'), 'cli-skill: core principles vẫn có');
+  fs.rmSync(TMP_CLI, { recursive: true, force: true });
   process.env.AIE_INSTALL_ROOT = TMP;
 }
 

@@ -444,6 +444,9 @@ function installOne(provider, effSetArg, scope) {
           placeEntry(path.join(srcComp, skill.name), path.join(destComp, skill.name), ctx);
         }
       }
+      // .mcp.json cấp plugin: chỉ đặt khi plugin đó active (có ≥1 skill hiệu lực) → gộp thành <id>.mcp.json
+      const mcp = path.join(pdir, '.mcp.json');
+      if (fs.existsSync(mcp) && pluginActive(id)) placeEntry(mcp, path.join(claudeRoot, `${id}.mcp.json`), ctx);
     }
   } else if (layout.kind === 'codex') {
     // Codex nạp native skills từ <root>/.codex/skills/<skill-id>/ (global -g → ~/.codex/skills/).

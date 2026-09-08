@@ -42,7 +42,8 @@ function reportInstall(r) {
     const mode = x.linked && x.copied ? `${x.linked} link + ${x.copied} copy`
       : x.linked ? `${x.linked} link`
       : `${x.copied} copy`;
-    console.log(`  - ${x.provider}: ${x.plugins.join(', ')} (+core) → ${mode}`);
+    const skills = (x.skills && x.skills.length) ? ` + skills: ${x.skills.join(', ')}` : '';
+    console.log(`  - ${x.provider}: ${x.plugins.join(', ')} (+core)${skills} → ${mode}`);
   }
   if (r.results.some((x) => x.mode === 'plugin')) {
     console.log(`  ⚠ Claude (plugin): mở/khởi động lại Claude Code rồi chạy /reload-plugins để nạp skills vừa cài.`);
@@ -86,7 +87,8 @@ function reportCheck(r) {
       continue;
     }
     const warn = e.present < e.files ? `  ⚠ thiếu ${e.files - e.present}/${e.files} file` : '';
-    console.log(`  - ${e.provider.padEnd(12)} ${e.plugins.join(',').padEnd(28)} ${e.present}/${e.files} file${warn}`);
+    const skills = (e.skills && e.skills.length) ? `  + skills: ${e.skills.join(', ')}` : '';
+    console.log(`  - ${e.provider.padEnd(12)} ${e.plugins.join(',').padEnd(28)} ${e.present}/${e.files} file${warn}${skills}`);
   }
 }
 
@@ -195,8 +197,11 @@ async function main() {
       return runBuild(['--target', args.target, ...(args.plugin !== 'all' ? ['--plugin', args.plugin] : [])]);
     case 'list':
       return runBuild(['--list']);
-    case 'install':
-      return reportInstall(install({ providers: args.provider, plugins: args.plugin, skills: args.skill, scope: args.scope, mode: args.mode }));
+    case 'install': {
+      // --skill KHÔNG kèm --plugin: để skill điều hướng lựa chọn, tránh 'all' lan ra mọi plugin.
+      const plugins = (args.skill.length && !args.pluginExplicit) ? [] : args.plugin;
+      return reportInstall(install({ providers: args.provider, plugins, skills: args.skill, scope: args.scope, mode: args.mode }));
+    }
     case 'remove':
     case 'uninstall': {
       const r = uninstall({ providers: args.provider, plugins: args.plugin, skills: args.skill, scope: args.scope });
