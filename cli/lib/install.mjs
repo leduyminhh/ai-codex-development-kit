@@ -409,72 +409,98 @@ function placeEntry(src, dest, ctx) {
   }
 }
 
-function installOne(provider, pluginIds, scope) {
+/**
+ * Đặt file từ BUILD OUTPUT vào scope root, LỌC theo tập skill hiệu lực `effSetArg`
+ * (`Set<'plugin/skill'>` từ effectiveSkills). Chỉ skill-dir có id trong tập mới được đặt.
+ * core LUÔN nguyên khối (baseline): mọi skill nguồn của core được ép vào tập lọc — git-workflow
+ * (skill dùng chung, KHÔNG do adapter sinh nên effectiveSkills chỉ ép core/principles) vẫn tới đích.
+ */
+function installOne(provider, effSetArg, scope) {
   const layout = PROVIDER_LAYOUT[provider];
   if (!layout) throw new Error(`Provider không hỗ trợ: ${provider}`);
   const root = scopeRoot(scope);
   const pbuild = path.join(BUILD_DIR, provider);
   if (!fs.existsSync(pbuild)) throw new Error(`Chưa build ${provider} (build/${provider} không có).`);
   const ctx = { files: [], links: [], useLink: USE_LINK, warned: false, root };
+  const effSet = new Set(effSetArg);
+  for (const s of allSkillsOf('core')) effSet.add(s); // core = baseline, không à-la-carte
+  const pluginActive = (id) => { for (const s of effSet) if (s.startsWith(`${id}/`)) return true; return false; };
 
   if (layout.kind === 'claude') {
     const claudeRoot = path.join(root, '.claude');
-    const ids = new Set(pluginIds);
-    ids.add('core'); // core luôn đi kèm
-    for (const id of ids) {
-      const pdir = path.join(pbuild, 'plugins', id);
-      if (!fs.existsSync(pdir)) continue;
+    const pluginsDir = path.join(pbuild, 'plugins');
+    if (!fs.existsSync(pluginsDir)) return { files: ctx.files, links: ctx.links };
+    for (const id of fs.readdirSync(pluginsDir)) {
+      const pdir = path.join(pluginsDir, id);
+      if (!fs.statSync(pdir).isDirectory()) continue;
       for (const comp of fs.readdirSync(pdir, { withFileTypes: true })) {
         if (!comp.isDirectory() || comp.name === '.claude-plugin') continue; // bỏ manifest plugin
+        const srcComp = path.join(pdir, comp.name);
         const destComp = path.join(claudeRoot, comp.name);
-        fs.mkdirSync(destComp, { recursive: true });           // dir TỔNG HỢP là thật (gộp nhiều plugin)
-        placeEntry(path.join(pdir, comp.name), destComp, ctx);  // link/copy từng child (skill-dir…)
+        for (const skill of fs.readdirSync(srcComp, { withFileTypes: true })) { // comp='skills' → từng skill-dir
+          if (!skill.isDirectory()) continue;
+          if (!effSet.has(`${id}/${skill.name}`)) continue;
+          fs.mkdirSync(destComp, { recursive: true });         // dir TỔNG HỢP là thật (gộp nhiều plugin)
+          placeEntry(path.join(srcComp, skill.name), path.join(destComp, skill.name), ctx);
+        }
       }
-      const mcp = path.join(pdir, '.mcp.json');
-      if (fs.existsSync(mcp)) placeEntry(mcp, path.join(claudeRoot, `${id}.mcp.json`), ctx);
     }
   } else if (layout.kind === 'codex') {
     // Codex nạp native skills từ <root>/.codex/skills/<skill-id>/ (global -g → ~/.codex/skills/).
-    // Link mỗi skill-dir từ build/codex/<id>/skills/ — core luôn đi kèm (giống claude).
     const skillsRoot = path.join(root, '.codex', 'skills');
-    const ids = new Set(pluginIds);
-    ids.add('core'); // core (skill principles) luôn đi kèm
-    for (const id of ids) {
+    for (const id of fs.readdirSync(pbuild)) {
       const sdir = path.join(pbuild, id, 'skills');
-      if (!fs.existsSync(sdir)) continue;
+      if (!fs.existsSync(sdir) || !fs.statSync(sdir).isDirectory()) continue;
       for (const skill of fs.readdirSync(sdir, { withFileTypes: true })) {
         if (!skill.isDirectory()) continue; // mỗi skill = 1 thư mục (SKILL.md + assets)
+        if (!effSet.has(`${id}/${skill.name}`)) continue;
         placeEntry(path.join(sdir, skill.name), path.join(skillsRoot, skill.name), ctx);
       }
     }
   } else if (layout.kind === 'cursor') {
-    // Cursor: rules (00-principles always-on) + Agent Skills (gọi bằng /skill-id). Core luôn kèm.
+    // Cursor: rules (<id>-00-principles always-on) + Agent Skills (gọi bằng /skill-id).
     const rulesDir = path.join(root, '.cursor', 'rules');
     const skillsRoot = path.join(root, '.cursor', 'skills');
-    const ids = new Set(pluginIds);
-    ids.add('core');
-    for (const id of ids) {
-      const rulesSrc = path.join(pbuild, id, '.cursor', 'rules');
-      if (fs.existsSync(rulesSrc)) {
+    for (const id of fs.readdirSync(pbuild)) {
+      const base = path.join(pbuild, id);
+      if (!fs.existsSync(base) || !fs.statSync(base).isDirectory()) continue;
+      const rulesSrc = path.join(base, '.cursor', 'rules');
+      // Rule 00-principles = generated <id>-principles → ship khi plugin có ≥1 skill hiệu lực.
+      if (pluginActive(id) && fs.existsSync(rulesSrc)) {
         for (const e of fs.readdirSync(rulesSrc, { withFileTypes: true })) {
-          // tên đã có prefix `<id>-` SẴN từ build → copy verbatim (chỉ còn 00-principles).
           placeEntry(path.join(rulesSrc, e.name), path.join(rulesDir, e.name), ctx);
         }
       }
-      const skillsSrc = path.join(pbuild, id, '.cursor', 'skills');
+      const skillsSrc = path.join(base, '.cursor', 'skills');
       if (!fs.existsSync(skillsSrc)) continue;
       for (const skill of fs.readdirSync(skillsSrc, { withFileTypes: true })) {
         if (!skill.isDirectory()) continue;
+        if (!effSet.has(`${id}/${skill.name}`)) continue;
         placeEntry(path.join(skillsSrc, skill.name), path.join(skillsRoot, skill.name), ctx);
       }
     }
   } else if (layout.kind === 'agents') {
-    const single = pluginIds.length === 1;
-    for (const id of pluginIds) {
+    // Antigravity: 1 bundle/plugin (AGENTS.md + docs/workflow/<skill>/). Skill dùng chung của core
+    // được gộp vào docs/workflow của TỪNG plugin (giữ id gốc core/<skill>) → lọc theo cả hai tiền tố.
+    const activeIds = [...new Set([...effSet].map((s) => s.split('/')[0]))]
+      .filter((id) => id !== 'core' && fs.existsSync(path.join(pbuild, id)));
+    const single = activeIds.length === 1;
+    const shipWorkflow = (id, name) => effSet.has(`${id}/${name}`) || effSet.has(`core/${name}`);
+    for (const id of activeIds) {
       const src = path.join(pbuild, id);
-      if (!fs.existsSync(src)) continue;
       const dest = single ? root : path.join(root, `cowork-${provider}`, id);
-      placeEntry(src, dest, ctx);
+      for (const top of fs.readdirSync(src, { withFileTypes: true })) {
+        if (top.name === 'docs') {
+          const wf = path.join(src, 'docs', 'workflow');
+          if (!fs.existsSync(wf)) continue;
+          for (const skill of fs.readdirSync(wf, { withFileTypes: true })) {
+            if (!skill.isDirectory() || !shipWorkflow(id, skill.name)) continue;
+            placeEntry(path.join(wf, skill.name), path.join(dest, 'docs', 'workflow', skill.name), ctx);
+          }
+        } else {
+          placeEntry(path.join(src, top.name), path.join(dest, top.name), ctx); // plugin-level (AGENTS.md…)
+        }
+      }
     }
   }
   return { files: ctx.files, links: ctx.links };
@@ -487,7 +513,7 @@ function installOne(provider, pluginIds, scope) {
  *   mode 'plugin' (mặc định 'skills') CHỈ áp dụng cho provider claude — cài qua `claude` CLI
  *   như plugin thật; provider khác luôn ở mode 'skills' (copy/symlink).
  */
-export function install({ providers, plugins, scope = 'project', mode = 'skills' }) {
+export function install({ providers, plugins, skills, scope = 'project', mode = 'skills' }) {
   if (!USE_LINK) console.warn('[aip] Cài qua npm (node_modules) → dùng copy thay vì symlink (bản cài self-contained).');
   const provs = !providers || providers === 'all' ? PROVIDERS : (Array.isArray(providers) ? providers : [providers]);
   // Codex nạp native skills ở mức user (~/.codex/skills). Cài scope=project (.codex/skills/ trong
@@ -519,16 +545,24 @@ export function install({ providers, plugins, scope = 'project', mode = 'skills'
       continue;
     }
 
-    // CỘNG DỒN: gộp với entry cùng provider, cùng mode (skills) — install thêm, không thay thế.
+    // CỘNG DỒN: union khối+lẻ với entry cùng provider (skills-mode) — install thêm, không thay thế.
+    const sel = resolveSelection({ plugins, skills });
     const prev = m.installs.find((e) => e.provider === provider && e.mode !== 'plugin');
-    const effPlugins = prev ? [...new Set([...(prev.plugins || []), ...pluginIds])] : pluginIds;
+    const effPlugins = prev ? [...new Set([...(prev.plugins || []), ...sel.plugins])] : sel.plugins;
+    const effSkills = prev ? [...new Set([...(prev.skills || []), ...sel.skills])] : sel.skills;
+    // chuẩn hoá dedup: skill lẻ đã nằm trong khối → bỏ khỏi skills (khối đã phủ)
+    const covered = new Set();
+    for (const id of effPlugins) for (const s of allSkillsOf(id)) covered.add(s);
+    const skillsFinal = effSkills.filter((s) => !covered.has(s));
+    const entry = { provider, plugins: effPlugins, skills: skillsFinal, scope };
     uninstallEntries(m, root, (e) => e.provider === provider); // gỡ bản cũ cùng (provider,scope) rồi cài lại UNION
-    const { files, links } = installOne(provider, effPlugins, scope);
+    const effSet = effectiveSkills(entry);
+    const { files, links } = installOne(provider, effSet, scope);
     const rel = (arr) => arr.map((f) => path.relative(root, f).split(path.sep).join('/'));
     const relF = rel(files), relL = rel(links);
     const managed = applyManagedBlock(root, instructionFiles(provider, scope));
-    m.installs.push({ provider, plugins: effPlugins, scope, files: relF, links: relL, managed, installedAt: new Date().toISOString() });
-    results.push({ provider, plugins: effPlugins, linked: relL.length, copied: relF.length, count: relF.length + relL.length });
+    m.installs.push({ ...entry, files: relF, links: relL, managed, installedAt: new Date().toISOString() });
+    results.push({ provider, plugins: effPlugins, skills: skillsFinal, linked: relL.length, copied: relF.length, count: relF.length + relL.length });
   }
   writeManifest(scope, m);
   // Cài claude → đóng gói sẵn skill cho Cowork (Cowork không đọc kho plugin local; phải upload .zip).

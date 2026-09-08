@@ -186,6 +186,24 @@ ok(claudeCliScope('global') === 'user' && claudeCliScope('project') === 'project
   process.env.AIE_INSTALL_ROOT = TMP; // khôi phục cho round-trip
 }
 
+// ── skill-granular: cài LẺ 1 skill → chỉ skill đó (+ baseline principles) ─────
+{
+  const TMP_S = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-skill-'));
+  process.env.AIE_INSTALL_ROOT = TMP_S;
+  install({ providers: 'claude', skills: ['backend/backend-init'], scope: 'project' });
+  const E = (rel) => fs.existsSync(path.join(TMP_S, rel));
+  ok(E('.claude/skills/backend-init/SKILL.md'), 'skill-lẻ: backend-init được cài');
+  ok(!E('.claude/skills/backend-testing/SKILL.md'), 'skill-lẻ: backend-testing KHÔNG được cài');
+  ok(E('.claude/skills/principles/SKILL.md'), 'skill-lẻ: core principles vẫn ép bật');
+  ok(E('.claude/skills/backend-principles/SKILL.md'), 'skill-lẻ: backend-principles baseline vẫn kèm');
+  const mf = JSON.parse(fs.readFileSync(path.join(TMP_S, '.ai-engineering/manifest.json'), 'utf8'));
+  const ce = mf.installs.find((e) => e.provider === 'claude');
+  ok(ce.skills.includes('backend/backend-init') && !ce.plugins.includes('backend'),
+    'skill-lẻ: manifest ghi skills=[backend/backend-init], KHÔNG nguyên khối');
+  fs.rmSync(TMP_S, { recursive: true, force: true });
+  process.env.AIE_INSTALL_ROOT = TMP;
+}
+
 // ── partial uninstall: entry nhiều plugin, gỡ 1 plugin -> GIỮ phần còn lại ────
 {
   const TMP_P = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-partial-'));
