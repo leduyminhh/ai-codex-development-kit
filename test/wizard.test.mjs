@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Test logic wizard + prompt (không cần TTY). Zero-dep. Chạy: node test/wizard.test.mjs
 import { keyToAction, BACK, CANCEL, renderFrame } from '../cli/lib/prompt.mjs';
+import { flattenTree, headerState, cascadeToggle } from '../cli/lib/prompt.mjs';
 
 let pass = 0; const fails = [];
 const ok = (c, m) => { if (c) pass++; else fails.push(m); };
@@ -34,6 +35,36 @@ ok(BACK !== CANCEL, 'BACK !== CANCEL');
   // width=20 · title "t"(1) + item "> "+50 = 52 ký tự → ceil(52/20)=3 + hint "h"(1) = 5 dòng visual
   ok(f.rows === 5, `renderFrame: label wrap theo width → đếm đủ visual rows (được ${f.rows}, mong đợi 5)`);
   ok(f.rows > f.text.split('\n').length, 'renderFrame: dòng wrap KHÔNG bị undercount (rows > số dòng logic)');
+}
+
+// selectTree phần thuần: flattenTree / headerState / cascadeToggle
+const GROUPS = [
+  { plugin: 'core', label: 'core', skills: [
+    { value: 'core/principles', label: 'principles', locked: true },
+    { value: 'core/git-workflow', label: 'git-workflow' } ] },
+  { plugin: 'backend', label: 'backend', skills: [
+    { value: 'backend/backend-init', label: 'backend-init' },
+    { value: 'backend/backend-testing', label: 'backend-testing' } ] },
+];
+
+{
+  const rows = flattenTree(GROUPS);
+  ok(rows[0].type === 'header' && rows[0].groupIndex === 0, 'flattenTree: dòng 0 là header core');
+  ok(rows.filter((r) => r.type === 'skill').length === 4, 'flattenTree: 4 skill rows');
+}
+{
+  ok(headerState(GROUPS[1], new Set(['backend/backend-init', 'backend/backend-testing'])) === 'full',
+    'headerState: đủ con → full');
+  ok(headerState(GROUPS[1], new Set(['backend/backend-init'])) === 'partial', 'headerState: một phần → partial');
+  ok(headerState(GROUPS[1], new Set()) === 'empty', 'headerState: rỗng → empty');
+}
+{
+  const sel = new Set(['core/principles']);
+  cascadeToggle(sel, GROUPS[0]);
+  ok(sel.has('core/git-workflow'), 'cascadeToggle: bật toàn nhóm');
+  cascadeToggle(sel, GROUPS[0]);
+  ok(!sel.has('core/git-workflow') && sel.has('core/principles'),
+    'cascadeToggle: tắt nhóm nhưng giữ locked (principles)');
 }
 
 import { runWizard } from '../cli/lib/wizard.mjs';

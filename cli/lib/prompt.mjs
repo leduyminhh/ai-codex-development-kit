@@ -126,6 +126,117 @@ function runSelect(title, items, { multi = false, preselected = [], min = 0 } = 
 export function selectOne(title, items, opts = {}) { return runSelect(title, items, { ...opts, multi: false }); }
 export function selectMany(title, items, opts = {}) { return runSelect(title, items, { ...opts, multi: true }); }
 
+/** Thuần: dựng danh sách dòng phẳng (header nhóm xen kẽ skill) để duyệt con trỏ. Export để test. */
+export function flattenTree(groups) {
+  const rows = [];
+  groups.forEach((g, gi) => {
+    rows.push({ type: 'header', groupIndex: gi, label: g.label });
+    for (const s of g.skills) rows.push({ type: 'skill', groupIndex: gi, value: s.value, label: s.label, locked: !!s.locked });
+  });
+  return rows;
+}
+/** Thuần: trạng thái checkbox nhóm theo số skill con đang chọn. Export để test. */
+export function headerState(group, selected) {
+  const vals = group.skills.map((s) => s.value);
+  const on = vals.filter((v) => selected.has(v)).length;
+  if (on === 0) return 'empty';
+  if (on === vals.length) return 'full';
+  return 'partial';
+}
+/** Thuần: bật/tắt toàn nhóm — full thì tắt hết (trừ locked), ngược lại bật hết; locked luôn giữ. Export để test. */
+export function cascadeToggle(selected, group) {
+  const state = headerState(group, selected);
+  for (const s of group.skills) {
+    if (s.locked) { selected.add(s.value); continue; }
+    if (state === 'full') selected.delete(s.value); else selected.add(s.value);
+  }
+}
+
+// Tập value của mọi skill bị khoá (luôn phải giữ trong selected).
+function lockedValues(groups) {
+  const out = [];
+  for (const g of groups) for (const s of g.skills) if (s.locked) out.push(s.value);
+  return out;
+}
+
+// Vẽ một dòng cây: header với checkbox 3 trạng thái, skill thụt 2 space (locked = dim).
+function renderTreeLines(title, rows, groups, { cursor, selected, hint }) {
+  const out = [bold(title)];
+  const boxOf = (state) => state === 'full' ? green('[x]') : state === 'partial' ? yellow('[~]') : dim('[ ]');
+  rows.forEach((r, i) => {
+    const active = i === cursor;
+    const pointer = active ? cyan('>') : ' ';
+    if (r.type === 'header') {
+      const box = boxOf(headerState(groups[r.groupIndex], selected));
+      const label = active ? cyan(r.label) : bold(r.label);
+      out.push(`${pointer} ${box} ${label}`);
+    } else {
+      const on = selected.has(r.value);
+      const box = r.locked ? dim('[x]') : on ? green('[x]') : dim('[ ]');
+      const label = r.locked ? dim(r.label) : active ? cyan(r.label) : r.label;
+      out.push(`${pointer}   ${box} ${label}`);
+    }
+  });
+  out.push(hint);
+  return out;
+}
+
+// Khung raw-mode song song runSelect nhưng duyệt cây phân cấp (header cascade skill).
+function runSelectTree(title, groups, { preselected = [], min = 0 } = {}) {
+  if (!process.stdin.isTTY || typeof process.stdin.setRawMode !== 'function') return Promise.reject(new WizardUnavailable());
+  const rows = flattenTree(groups);
+  const locked = lockedValues(groups);
+  return new Promise((resolve) => {
+    let cursor = 0;
+    const selected = new Set([...preselected, ...locked]);
+    const hint = '↑/↓ di chuyển · Space chọn/nhóm · a tất cả · Enter xác nhận · b quay lại · q huỷ';
+    let last = 0;
+    const draw = (note = '') => {
+      if (last) process.stdout.write(`\x1b[${last}A\x1b[0J`);
+      const hintLine = note ? yellow(note) : dim(hint);
+      const text = renderTreeLines(title, rows, groups, { cursor, selected, hint: hintLine }).join('\n');
+      process.stdout.write(text + '\n');
+      last = visualRows(text, process.stdout.columns || 80);
+    };
+    readline.emitKeypressEvents(process.stdin);
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    const cleanup = () => {
+      process.stdin.off('keypress', onKey);
+      try { process.stdin.setRawMode(false); } catch { /* */ }
+      process.stdin.pause();
+    };
+    const onKey = (_str, key) => {
+      if (!key) return;
+      const act = keyToAction(key.name, key);
+      if (act === 'up') cursor = (cursor - 1 + rows.length) % rows.length;
+      else if (act === 'down') cursor = (cursor + 1) % rows.length;
+      else if (act === 'toggle') {
+        const r = rows[cursor];
+        if (r.type === 'header') cascadeToggle(selected, groups[r.groupIndex]);
+        else if (!r.locked) { selected.has(r.value) ? selected.delete(r.value) : selected.add(r.value); }
+      } else if (act === 'all') {
+        const normals = rows.filter((r) => r.type === 'skill' && !r.locked).map((r) => r.value);
+        if (normals.every((v) => selected.has(v))) for (const v of normals) selected.delete(v);
+        else for (const v of normals) selected.add(v);
+      } else if (act === 'back') { cleanup(); return resolve(BACK); }
+      else if (act === 'quit') { cleanup(); return resolve(CANCEL); }
+      else if (act === 'confirm') {
+        if (selected.size < min) { draw(`! Chọn ít nhất ${min} mục (Space để chọn).`); return; }
+        cleanup();
+        const order = rows.filter((r) => r.type === 'skill' && selected.has(r.value)).map((r) => r.value);
+        return resolve(order);
+      }
+      draw();
+    };
+    process.stdout.write('\n' + SEP + '\n');
+    process.stdin.on('keypress', onKey);
+    draw();
+  });
+}
+
+export function selectTree(title, groups, opts = {}) { return runSelectTree(title, groups, opts); }
+
 /** Confirm = chọn "Xác nhận & chạy" (true) hoặc "Quay lại sửa" (BACK). q huỷ. */
 export async function confirmStep(title, lines = []) {
   const body = [title, ...lines.map((l) => '  ' + l)].join('\n');
