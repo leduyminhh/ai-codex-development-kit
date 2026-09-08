@@ -96,6 +96,21 @@ effective(entry) = {core/principles}                        // ép bật (Q2)
                  ∪ entry.skills                              // lẻ → cố định
 ```
 
+**Skill principles (generated, KHÔNG à-la-carte):** `core/principles` và `<plugin>-principles`
+(sinh từ `plugins/<id>/shared/principles.md`) **KHÔNG** là skill nguồn của `loadSkills` (không có
+`skills/<id>/SKILL.md`). Vì thế:
+- `skillCatalog()` **prepend** `core/principles` vào nhóm core (khoá bật) — không lấy từ `loadSkills`.
+- `effectiveSkills(entry)` **tự thêm** `<plugin>/<plugin>-principles` cho **mọi** plugin đang active
+  (khối hoặc suy từ skill lẻ), cạnh `core/principles` ép bật.
+- Cả hai loại principles **ship tự động** cùng bất kỳ plugin nào đang active; chúng **không** chọn-lẻ
+  được và không nằm trong tập à-la-carte của `--skill`.
+
+**Mặc định core nguyên khối (selectable-off nhưng default-on):** `resolveSelection` coi core là **WHOLE**
+trừ khi selection **nhắc tường minh** một skill `core/*` (không có `core` trong `--plugin`, không `core/*`
+trong `--skill`). Nhờ vậy `--plugin backend` và wizard-với-git-workflow-được-tick vẫn ship `core/git-workflow`
+(default-on, backward-compat); còn `--skill core/principles` thu hẹp core còn đúng principles (narrow git-workflow
+ra). Đây là cơ chế biến `core/git-workflow` thành **chọn-lẻ-tắt-được** trong khi vẫn **mặc-định-bật**.
+
 **Cộng dồn (install thêm):** `plugins := prev.plugins ∪ new.plugins`; `skills := prev.skills ∪ new.skills`;
 rồi chuẩn hoá dedup như trên.
 
@@ -241,7 +256,7 @@ Không có trong đợt này: đổi số bước wizard cứng (chuỗi bước
 | Đơn vị cài hiện tại = plugin; `installOne` link/copy mọi skill-dir của plugin | `cli/lib/install.mjs:332-401` |
 | Manifest entry: `{provider, plugins, scope, files, links, managed, installedAt}` (+ mode/marketplace/cliScope cho plugin-mode) | `install.mjs:433-451` |
 | Cộng dồn hiện tại theo union `plugins`; gỡ lẻ plugin = gỡ entry rồi cài lại phần giữ | `install.mjs:443-451, 489-513` |
-| `resolvePlugins` fail-loud khi id lạ | `install.mjs:285-292` |
+| Fail-loud khi id lạ nay ở `resolveSelection` (private `resolvePlugins` đã gỡ khi thực thi) | `install.mjs` (`resolveSelection`) |
 | `loadSkills` auto-discover `skills/<id>/SKILL.md`; skill-dir name = tên thư mục | `cli/lib/plugins.mjs:89-144` |
 | `selectMany`/`runSelect` raw-mode, `keyToAction` thuần, redraw đếm dòng visual | `cli/lib/prompt.mjs:74-127` |
 | Wizard install bước 3/5 chọn plugin (selectMany); uninstall chọn provider | `cli/lib/wizard.mjs:71-113` |
@@ -254,7 +269,7 @@ Không có trong đợt này: đổi số bước wizard cứng (chuỗi bước
 | Điều cần xác nhận | Cách |
 |---|---|
 | [Unverified] Antigravity (`kind: 'agents'`) lọc theo skill có cần đặt lại file plugin-level không | đọc `adapters/antigravity` + build output, thử cài 1 skill |
-| [Unverified] Skill-dir name thực sự duy nhất toàn cục giữa mọi plugin | đối chiếu `loadPlugins()` — nếu trùng, khoá theo `plugin/skill` vẫn đúng nhưng đích phẳng có thể đụng |
+| [VERIFIED] Skill-dir name duy nhất toàn cục giữa mọi plugin (backend-init, principles, `<id>-principles`) → cài nhiều plugin không đụng đích phẳng | comment `adapters/codex/adapter.mjs:11-12` |
 | [Inference] Giữ nguyên số nhãn "Bước x/y" khi thêm/bớt bước wizard | rà lại chuỗi `runSteps` sau khi sửa |
 
 ---

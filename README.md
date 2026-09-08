@@ -30,6 +30,9 @@ aip                                   # interactive wizard
 aip install --provider claude --plugin backend --yes
 aip install --provider all --plugin all --yes
 aip install --provider codex --plugin all -g   # global scope
+# pick individual skills (plugin/skill):
+aip install --provider claude --skill backend/backend-init,core/git-workflow --yes
+aip uninstall --skill backend/backend-migrate-architecture --yes
 ```
 
 `aip` and `ai-engineering-platform` invoke the same CLI. `aip --help` prints the guide.
@@ -90,8 +93,8 @@ Every command runs `node cli/index.mjs`.
 
 ```bash
 aip                 # menu wizard: install | uninstall | build | check
-aip install   --provider all|<p>... --plugin all|<id>... [-g] [--yes] [--as-plugin]
-aip uninstall [--provider ...] [--plugin ...] [-g] [--yes]   # alias: remove
+aip install   --provider all|<p>... [--plugin all|<id>...] [--skill <a,b>] [-g] [--yes] [--as-plugin]
+aip uninstall [--provider ...] [--plugin ...] [--skill <a,b>] [-g] [--yes]   # alias: remove
 aip build     --provider all|<p>...   # alias flag: --target
 aip check     [-g]
 aip update    [-g]        # git pull + rebuild + reinstall tracked installs
@@ -100,12 +103,21 @@ aip list                  # discovered adapters + plugins
 ```
 
 - **Scope**: `project` (default, cwd) or `global` (`-g` / `--scope global`, home dir).
+- **`--plugin <id>...`** selects whole plugins (all of their skills); **`--skill <a,b>`**
+  selects individual skills as `plugin/skill` (e.g. `backend/backend-init`) — a bare
+  skill name resolves when it is unambiguous. `--plugin` and `--skill` union together.
+  `core/principles` is always installed (forced); `core/git-workflow` is selectable
+  (default-on with a whole plugin, narrow it out with an explicit `--skill core/...`).
 - **Install** is symlink-first (junctions on Windows) with a copy fallback, and is
-  additive — installing another plugin unions with what is already there. It also
-  merges the baseline managed block into the project's instruction file.
+  additive — installing another plugin or skill unions with what is already there. It
+  also merges the baseline managed block into the project's instruction file.
 - **`--as-plugin`** (Claude only) installs via the `claude` CLI as a real plugin
   (marketplace + namespaced `<id>:<skill>`) instead of flat `.claude/skills/`;
-  requires `claude` on PATH.
+  requires `claude` on PATH. It installs the whole plugin of each selected skill
+  (skills cannot be split in plugin-mode) and warns when a `--skill` narrows this.
+- **Wizard** selection is skill-granular: skills are grouped by plugin (toggling the
+  plugin header cascades to all of its children), so you can pick whole plugins or
+  individual skills in one list; `core/principles` stays locked-on.
 - **Uninstall** (alias `remove`) removes only tracked paths (never link targets),
   prunes emptied directories, and reference-counts the shared managed block.
 - Providers installed by default: `claude`, `cursor`, `codex`. `antigravity` builds

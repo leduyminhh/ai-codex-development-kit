@@ -30,6 +30,9 @@ aip                                   # wizard tương tác
 aip install --provider claude --plugin backend --yes
 aip install --provider all --plugin all --yes
 aip install --provider codex --plugin all -g   # scope global
+# chọn skill lẻ (plugin/skill):
+aip install --provider claude --skill backend/backend-init,core/git-workflow --yes
+aip uninstall --skill backend/backend-migrate-architecture --yes
 ```
 
 `aip` và `ai-engineering-platform` gọi cùng một CLI. `aip --help` in hướng dẫn.
@@ -90,8 +93,8 @@ Mọi lệnh chạy `node cli/index.mjs`.
 
 ```bash
 aip                 # menu wizard: install | uninstall | build | check
-aip install   --provider all|<p>... --plugin all|<id>... [-g] [--yes] [--as-plugin]
-aip uninstall [--provider ...] [--plugin ...] [-g] [--yes]   # alias: remove
+aip install   --provider all|<p>... [--plugin all|<id>...] [--skill <a,b>] [-g] [--yes] [--as-plugin]
+aip uninstall [--provider ...] [--plugin ...] [--skill <a,b>] [-g] [--yes]   # alias: remove
 aip build     --provider all|<p>...   # cờ alias: --target
 aip check     [-g]
 aip update    [-g]        # git pull + build lại + cài lại các install đã ghi
@@ -100,10 +103,20 @@ aip list                  # adapter + plugin phát hiện được
 ```
 
 - **Scope**: `project` (mặc định, cwd) hoặc `global` (`-g` / `--scope global`, thư mục home).
+- **`--plugin <id>...`** chọn **nguyên plugin** (mọi skill của nó); **`--skill <a,b>`** chọn
+  **skill lẻ** dạng `plugin/skill` (vd `backend/backend-init`) — tên skill trần chỉ nhận khi
+  không trùng. `--plugin` và `--skill` hợp nhất với nhau. `core/principles` luôn được cài
+  (ép bật); `core/git-workflow` chọn lẻ được (mặc định bật cùng plugin nguyên khối, muốn bỏ thì
+  dùng `--skill core/...` tường minh).
 - **Install** ưu tiên symlink (junction trên Windows) + fallback copy, và **cộng dồn** —
-  cài thêm plugin sẽ hợp với cái đã có. Đồng thời chèn khối baseline vào file chỉ dẫn của project.
+  cài thêm plugin hay skill sẽ hợp với cái đã có. Đồng thời chèn khối baseline vào file chỉ dẫn của project.
 - **`--as-plugin`** (chỉ Claude) cài qua CLI `claude` như PLUGIN THẬT (marketplace +
   namespaced `<id>:<skill>`) thay vì copy phẳng vào `.claude/skills/`; cần có `claude` trên PATH.
+  Nó cài NGUYÊN plugin của mỗi skill được chọn (plugin-mode không tách skill) và cảnh báo khi
+  `--skill` bị thu hẹp.
+- **Wizard** chọn ở mức skill: skill được gộp theo plugin (toggle header plugin cascade xuống mọi
+  skill con), nên có thể chọn cả plugin hoặc từng skill trong một danh sách; `core/principles`
+  luôn khoá-bật.
 - **Uninstall** (alias `remove`) chỉ gỡ path đã track (không đụng target của link), prune thư mục
   rỗng, và đếm-tham-chiếu khối managed dùng chung.
 - Provider cài mặc định: `claude`, `cursor`, `codex`. `antigravity` có build nhưng chỉ cài
