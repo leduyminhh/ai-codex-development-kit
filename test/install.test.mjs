@@ -416,6 +416,57 @@ ok(claudeCliScope('global') === 'user' && claudeCliScope('project') === 'project
   process.env.AIE_INSTALL_ROOT = TMP;
 }
 
+// ── antigravity (layout 'agents'): full luồng tường minh + regression managed-block symlink ─────
+// antigravity KHÔNG thuộc PROVIDERS (không wizard/--all) nhưng cài được khi gọi tường minh.
+// Layout 1 plugin: AGENTS.md + docs/workflow/<skill>/ ở gốc. AGENTS.md là artifact SINH SẴN (đã
+// inline baseline) ship qua symlink → install KHÔNG được merge managed block (ghi xuyên vào nguồn build).
+{
+  const BUILD_AGENTS = path.join(REPO, 'build/antigravity/backend/AGENTS.md');
+  const MARK = '<!-- AI-ENGINEERING:BEGIN AGENTS_BASELINE -->';
+
+  // A) vòng đời đầy đủ: install khối → gỡ lẻ → update → gỡ provider (một scope)
+  const TA = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-agy-'));
+  process.env.AIE_INSTALL_ROOT = TA;
+  const A = (rel) => fs.existsSync(path.join(TA, rel));
+  install({ providers: 'antigravity', plugins: 'backend', scope: 'project' });
+  ok(A('AGENTS.md'), 'agy: AGENTS.md ở gốc (plugin-level)');
+  ok(A('docs/workflow/backend-init/SKILL.md'), 'agy: docs/workflow/backend-init');
+  ok(A('docs/workflow/git-workflow/SKILL.md'), 'agy: core git-workflow gộp vào docs/workflow');
+  ok(!fs.readFileSync(BUILD_AGENTS, 'utf8').includes(MARK),
+    'agy regression: install KHÔNG ghi managed block xuyên symlink vào nguồn build');
+  const ce = JSON.parse(fs.readFileSync(path.join(TA, '.ai-engineering/manifest.json'), 'utf8'))
+    .installs.find((e) => e.provider === 'antigravity');
+  ok(ce && (!ce.managed || ce.managed.length === 0),
+    'agy: entry KHÔNG track managed AGENTS.md (governance đã trong artifact sinh sẵn)');
+  // gỡ lẻ 1 skill → giữ phần còn lại
+  uninstall({ providers: 'antigravity', skills: ['backend/backend-testing'], scope: 'project' });
+  ok(!A('docs/workflow/backend-testing/SKILL.md'), 'agy gỡ-lẻ: backend-testing đã gỡ');
+  ok(A('docs/workflow/backend-init/SKILL.md'), 'agy gỡ-lẻ: backend-init còn');
+  // update --provider antigravity → reinstall, không mất file
+  const ru = update({ scope: 'project', pull: false, providers: 'antigravity' });
+  ok(ru.entries.some((e) => e.provider === 'antigravity' && e.action === 'reinstall'),
+    'agy update: entry reinstall');
+  ok(A('docs/workflow/backend-init/SKILL.md'), 'agy update: skill còn sau update');
+  // gỡ nguyên provider → sạch
+  uninstall({ providers: 'antigravity', scope: 'project' });
+  ok(!A('docs/workflow/backend-init/SKILL.md'), 'agy gỡ provider: skills đã gỡ');
+  ok(check({ scope: 'project' }).installs.length === 0, 'agy gỡ provider: manifest trống');
+  ok(!fs.readFileSync(BUILD_AGENTS, 'utf8').includes(MARK),
+    'agy regression: hết vòng đời, nguồn build vẫn không có managed marker');
+  fs.rmSync(TA, { recursive: true, force: true });
+
+  // B) install LẺ 1 skill → chỉ skill đó + git-workflow, không kéo anh em
+  const TB = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-agy-skill-'));
+  process.env.AIE_INSTALL_ROOT = TB;
+  const B = (rel) => fs.existsSync(path.join(TB, rel));
+  install({ providers: 'antigravity', skills: ['backend/backend-init'], scope: 'project' });
+  ok(B('docs/workflow/backend-init/SKILL.md'), 'agy skill-lẻ: backend-init có');
+  ok(B('docs/workflow/git-workflow/SKILL.md'), 'agy skill-lẻ: core git-workflow đi kèm');
+  ok(!B('docs/workflow/backend-testing/SKILL.md'), 'agy skill-lẻ: KHÔNG kéo skill anh em');
+  fs.rmSync(TB, { recursive: true, force: true });
+  process.env.AIE_INSTALL_ROOT = TMP;
+}
+
 try {
   // 1. install claude + backend (project)
   const r1 = install({ providers: 'claude', plugins: 'backend', scope: 'project' });

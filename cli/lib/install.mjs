@@ -100,11 +100,13 @@ function baselineBlock() {
   }
   return full.slice(start, end + MB_END.length);
 }
-/** File chỉ dẫn (rel scope root) mỗi provider nhận khối. cursor: bỏ qua (đã inline vào .cursor/rules). */
+/** File chỉ dẫn (rel scope root) mỗi provider nhận khối. cursor + antigravity: bỏ qua — governance đã
+ *  inline sẵn (cursor vào .cursor/rules; antigravity vào AGENTS.md sinh sẵn). Nếu trả 'AGENTS.md' cho
+ *  antigravity, applyManagedBlock sẽ ghi XUYÊN symlink (AGENTS.md là artifact ship từ build) vào nguồn
+ *  build, đồng thời trùng file với codex. */
 function instructionFiles(provider, scope) {
   if (provider === 'claude') return [scope === 'global' ? '.claude/CLAUDE.md' : 'CLAUDE.md'];
   if (provider === 'codex') return [scope === 'global' ? '.codex/AGENTS.md' : 'AGENTS.md'];
-  if (provider === 'antigravity') return ['AGENTS.md'];
   return [];
 }
 /** Merge khối baseline vào từng file; trả các rel đã ghi (để lưu vào manifest entry). */
