@@ -340,6 +340,31 @@ ok(claudeCliScope('global') === 'user' && claudeCliScope('project') === 'project
   process.env.AIE_INSTALL_ROOT = TMP;
 }
 
+// ── CLI seam: uninstall --provider/--plugin (KHÔNG --skill) vẫn gỡ thật ────────
+// index.mjs truyền skills=args.skill (mặc định []). [] phải được coi là "không lọc theo skill",
+// KHÔNG phải "lọc theo tập rỗng" (khiến matched luôn false → gỡ 0 file).
+{
+  const TMP_UR = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-cli-rm-'));
+  process.env.AIE_INSTALL_ROOT = TMP_UR;
+  const E = (rel) => fs.existsSync(path.join(TMP_UR, rel));
+
+  // gỡ theo --plugin: giữ core, xoá backend
+  install({ providers: 'cursor', plugins: 'backend', scope: 'project' });
+  const ap = parse(['uninstall', '--provider', 'cursor', '--plugin', 'backend']);
+  const rp = uninstall({ providers: ap.provider, plugins: ap.plugin, skills: ap.skill, scope: 'project' });
+  ok(rp.removed > 0, 'cli-uninstall --plugin: gỡ >0 file (args.skill=[] không làm matched luôn false)');
+  ok(!E('.cursor/skills/backend-init/SKILL.md'), 'cli-uninstall --plugin: backend đã gỡ khỏi đĩa');
+  ok(E('.cursor/skills/git-workflow/SKILL.md'), 'cli-uninstall --plugin: core còn lại');
+
+  // gỡ theo --provider (plugin=all): xoá sạch provider
+  const av = parse(['uninstall', '--provider', 'cursor']);
+  const rv = uninstall({ providers: av.provider, plugins: av.plugin, skills: av.skill, scope: 'project' });
+  ok(rv.removed > 0, 'cli-uninstall --provider: gỡ >0 file (không kẹt vì skills=[])');
+  ok(!E('.cursor/skills/git-workflow/SKILL.md'), 'cli-uninstall --provider: đã gỡ sạch cursor');
+  fs.rmSync(TMP_UR, { recursive: true, force: true });
+  process.env.AIE_INSTALL_ROOT = TMP;
+}
+
 try {
   // 1. install claude + backend (project)
   const r1 = install({ providers: 'claude', plugins: 'backend', scope: 'project' });

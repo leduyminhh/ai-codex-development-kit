@@ -614,9 +614,14 @@ function uninstallEntries(m, root, predicate) {
  *  resolveSelection nên sẽ ném khi cài lại. core/principles giữ nguyên trong remaining khi core còn —
  *  resolveSelection tự quy về whole-core, install lại tự ép core/principles. */
 export function uninstall({ providers, plugins, skills, scope = 'project' }) {
-  const provs = !providers || providers === 'all' ? null : (Array.isArray(providers) ? providers : [providers]);
-  const plugSel = !plugins || plugins === 'all' ? null : (Array.isArray(plugins) ? plugins : [plugins]);
-  const skillSel = !skills ? null : (Array.isArray(skills) ? skills : [skills]);
+  // Mảng RỖNG (vd args.skill/args.plugin mặc định []) phải quy về null = "không lọc theo trục này".
+  // Nếu để [] lọt qua, mệnh đề (!sel || …some(sel.includes)) thành (false || false) → matched luôn
+  // false → gỡ 0 file khi chỉ truyền --provider/--plugin. ('all' cũng là "không lọc".)
+  const norm = (v, all = false) =>
+    !v || (all && v === 'all') || (Array.isArray(v) && !v.length) ? null : (Array.isArray(v) ? v : [v]);
+  const provs = norm(providers, true);
+  const plugSel = norm(plugins, true);
+  const skillSel = norm(skills);
   const root = scopeRoot(scope);
   const m = readManifest(scope);
   const matched = (e) =>
