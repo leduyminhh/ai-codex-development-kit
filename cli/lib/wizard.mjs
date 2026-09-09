@@ -47,6 +47,22 @@ export async function runWizard(action, deps = defaultDeps) {
 
   const provItems = d.PROVIDERS.map((p) => ({ label: p, value: p }));
 
+  // Cây skill CÓ THỂ chọn lẻ, gộp theo plugin — dùng chung cho uninstall (gỡ) và update (làm tươi).
+  // Bỏ baseline không tách lẻ được (core/principles + generated <plugin>-principles).
+  const removableGroups = (installs) => {
+    const byPlugin = new Map();
+    for (const e of installs) for (const sid of (e.skills || [])) {
+      const [plug, name] = sid.split('/');
+      if (sid === 'core/principles' || name === `${plug}-principles`) continue;
+      if (!byPlugin.has(plug)) byPlugin.set(plug, new Set());
+      byPlugin.get(plug).add(sid);
+    }
+    return [...byPlugin.entries()].map(([plug, set]) => ({
+      plugin: plug, label: plug,
+      skills: [...set].sort().map((v) => ({ value: v, label: v.split('/')[1] })),
+    }));
+  };
+
   if (action === 'build') {
     const ok = await d.confirmStep('build · build mọi adapter ra build/<tool>/');
     return (ok === BACK || ok === CANCEL) ? null : { action: 'build' };
@@ -92,34 +108,35 @@ export async function runWizard(action, deps = defaultDeps) {
   }
 
   if (action === 'update') {
+    // Chọn skill/plugin để làm tươi (mặc định bật hết = update mọi entry). Chỉ có install copy-mode
+    // (plugin-mode do `claude` CLI quản, không tách skill) → cây rỗng thì bỏ bước, update tất cả.
     const st = await runSteps([
-      { key: 'scope', run: () => d.selectOne('update · Bước 1/2 · Chọn scope', SCOPE_ITEMS) },
+      { key: 'scope', run: () => d.selectOne('update · Bước 1/3 · Chọn scope', SCOPE_ITEMS) },
+      { key: 'skills', run: (s) => {
+          const installs = d.check({ scope: s.scope }).installs;
+          if (!installs.length) { console.log(`\nKhông có gì đã cài ở scope=${s.scope} để update. (b để đổi scope, q để thoát)`); return CANCEL; }
+          const groups = removableGroups(installs.filter((e) => e.mode !== 'plugin'));
+          if (!groups.length) return []; // chỉ có plugin-mode / core-only → không lọc, update tất cả
+          const all = groups.flatMap((g) => g.skills.map((sk) => sk.value));
+          return d.selectTree('update · Bước 2/3 · Chọn skill/plugin để làm tươi (mặc định tất cả)',
+            groups, { preselected: all, min: 1 });
+        } },
       { key: 'ok', run: (s) => {
-          const installed = d.check({ scope: s.scope }).installs;
-          if (!installed.length) { console.log(`\nKhông có gì đã cài ở scope=${s.scope} để update. (b để đổi scope, q để thoát)`); return CANCEL; }
-          const summary = installed.map((e) => `${e.provider}(${(e.plugins || []).join(',')})`).join(' · ');
-          return d.confirmStep('update · Bước 2/2 · Xác nhận', [`git pull → build → cập nhật ${summary} | scope=${s.scope}`]);
+          const installs = d.check({ scope: s.scope }).installs;
+          const skills = s.skills || [];
+          const sel = skills.length ? `skills=${skills.join(',')}` : 'tất cả entry';
+          const summary = installs.map((e) => `${e.provider}(${(e.plugins || []).join(',')})`).join(' · ');
+          return d.confirmStep('update · Bước 3/3 · Xác nhận',
+            [`git pull → build → làm tươi ${sel} | đã cài: ${summary} | scope=${s.scope}`]);
         } },
     ]);
-    return st ? { action: 'update', scope: st.scope } : null;
+    // skills rỗng = không lọc (update mọi entry); có skill = chỉ entry chứa skill đó.
+    return st ? { action: 'update', scope: st.scope, skills: st.skills || [] } : null;
   }
 
   if (action === 'uninstall') {
     // Skill CÀI được chọn để gỡ = hợp mọi entry copy-mode; bỏ baseline không gỡ lẻ được
-    // (core/principles + generated <plugin>-principles). Trả về nhóm cây theo plugin.
-    const removableGroups = (installs) => {
-      const byPlugin = new Map();
-      for (const e of installs) for (const sid of (e.skills || [])) {
-        const [plug, name] = sid.split('/');
-        if (sid === 'core/principles' || name === `${plug}-principles`) continue;
-        if (!byPlugin.has(plug)) byPlugin.set(plug, new Set());
-        byPlugin.get(plug).add(sid);
-      }
-      return [...byPlugin.entries()].map(([plug, set]) => ({
-        plugin: plug, label: plug,
-        skills: [...set].sort().map((v) => ({ value: v, label: v.split('/')[1] })),
-      }));
-    };
+    // (core/principles + generated <plugin>-principles) — dùng removableGroups dùng chung ở trên.
     const st = await runSteps([
       { key: 'scope', run: () => d.selectOne('uninstall · Bước 1/3 · Chọn scope', SCOPE_ITEMS) },
       { key: 'skills', run: (s) => {

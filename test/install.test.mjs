@@ -13,7 +13,8 @@ process.env.AIE_INSTALL_ROOT = TMP;
 
 const { install, uninstall, update, check, linkDisabledForRoot, claudePluginCommands,
   claudePluginRefreshCommands, claudeCliScope, marketplacesToRemove,
-  skillCatalog, allSkillsOf, resolveSelection, effectiveSkills, pluginsFromSelection } =
+  skillCatalog, allSkillsOf, resolveSelection, effectiveSkills, pluginsFromSelection,
+  normFilter, entryMatches } =
   await import('../cli/lib/install.mjs');
 const { zipBuffer, coworkSkillIds, pack } = await import('../cli/lib/pack.mjs');
 const { parse } = await import('../cli/lib/args.mjs');
@@ -147,6 +148,26 @@ ok(claudeCliScope('global') === 'user' && claudeCliScope('project') === 'project
   let threw = false;
   try { resolveSelection({ skills: ['backend/khong-ton-tai'] }); } catch { threw = true; }
   ok(threw, 'resolveSelection: skill không tồn tại → ném lỗi');
+}
+
+// ── unit: normFilter + entryMatches (PURE) — trục lọc dùng chung uninstall/update ──
+{
+  ok(normFilter(undefined) === null && normFilter([]) === null,
+    'normFilter: undefined/[] → null (không lọc trục này)');
+  ok(normFilter('all', true) === null, "normFilter: 'all' (all=true) → null");
+  ok(JSON.stringify(normFilter('all')) === '["all"]',
+    "normFilter: 'all' khi all=false → giữ nguyên (không coi là bỏ lọc)");
+  ok(JSON.stringify(normFilter('cursor')) === '["cursor"]', 'normFilter: string → [string]');
+  ok(JSON.stringify(normFilter(['a', 'b'])) === '["a","b"]', 'normFilter: array giữ nguyên');
+
+  const e = { provider: 'cursor', plugins: ['core'], skills: ['backend/backend-init'] };
+  ok(entryMatches(e, null, null, null), 'entryMatches: mọi trục null → khớp (không lọc)');
+  ok(entryMatches(e, ['cursor'], null, null), 'entryMatches: đúng provider → khớp');
+  ok(!entryMatches(e, ['claude'], null, null), 'entryMatches: sai provider → trượt');
+  ok(entryMatches(e, null, ['backend'], null),
+    'entryMatches: plugin khớp qua prefix skill lẻ (plugins=[core] nhưng có backend/*)');
+  ok(!entryMatches(e, null, ['frontend'], null), 'entryMatches: plugin không có → trượt');
+  ok(entryMatches(e, null, null, ['backend/backend-init']), 'entryMatches: skill khớp theo tập hiệu lực');
 }
 
 // ── plugin-mode: suy tập plugin từ skill lẻ (PURE) ───────────────────────────
@@ -310,6 +331,36 @@ ok(claudeCliScope('global') === 'user' && claudeCliScope('project') === 'project
   ok(fs.existsSync(path.join(TMP_U2, '.claude/skills/backend-init/SKILL.md')),
     'update skill-lẻ: skill đã chọn vẫn còn (refresh)');
   fs.rmSync(TMP_U2, { recursive: true, force: true });
+  process.env.AIE_INSTALL_ROOT = TMP;
+}
+
+// ── update FILTER: chỉ làm tươi entry khớp --provider/--plugin; không khớp → noMatch ──
+{
+  const TMP_UF = fs.mkdtempSync(path.join(os.tmpdir(), 'cwf-upd-filter-'));
+  process.env.AIE_INSTALL_ROOT = TMP_UF;
+  install({ providers: 'claude', plugins: 'backend', scope: 'project' });
+  install({ providers: 'cursor', plugins: 'frontend', scope: 'project' });
+
+  // lọc theo provider: chỉ cursor được build + reinstall
+  const rProv = update({ scope: 'project', pull: false, providers: 'cursor' });
+  ok(JSON.stringify(rProv.built) === '["cursor"]', 'update --provider: chỉ build provider khớp (cursor)');
+  ok(rProv.entries.length === 1 && rProv.entries[0].provider === 'cursor',
+    'update --provider: chỉ refresh entry cursor, không đụng claude');
+
+  // lọc theo plugin: chỉ entry chứa backend (claude)
+  const rPlug = update({ scope: 'project', pull: false, plugins: 'backend' });
+  ok(rPlug.entries.length === 1 && rPlug.entries[0].provider === 'claude',
+    'update --plugin backend: chỉ refresh entry chứa backend (claude)');
+
+  // lọc không khớp entry nào → noMatch, không build gì
+  const rNo = update({ scope: 'project', pull: false, plugins: 'olap-warehouse' });
+  ok(rNo.noMatch === true && rNo.entries.length === 0 && rNo.built.length === 0,
+    'update --plugin olap-warehouse: không entry khớp → noMatch, không build');
+
+  // không filter (mặc định) → cả hai entry
+  const rAll = update({ scope: 'project', pull: false });
+  ok(rAll.entries.length === 2 && !rAll.noMatch, 'update không filter: làm tươi mọi entry');
+  fs.rmSync(TMP_UF, { recursive: true, force: true });
   process.env.AIE_INSTALL_ROOT = TMP;
 }
 

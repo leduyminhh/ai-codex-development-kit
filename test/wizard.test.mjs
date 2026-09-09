@@ -211,11 +211,34 @@ function makeDeps({ one = [], many = [], confirm = [], tree = [], catalog = CATA
   ok(r === null, 'uninstall: manifest rỗng -> null');
 }
 
-// update: scope project (có cài) -> confirm -> action object
+// update: scope -> cây skill -> confirm; chọn LẺ 1 skill -> filter skills đúng
 {
-  const deps = makeDeps({ one: ['project'], confirm: [true] });
+  const deps = makeDeps({ one: ['project'], tree: [['backend/backend-init']], confirm: [true] });
   const r = await runWizard('update', deps);
-  ok(r && r.action === 'update' && r.scope === 'project', 'update: scope project + confirm -> {action:update, scope}');
+  ok(r && r.action === 'update' && r.scope === 'project'
+    && JSON.stringify(r.skills) === '["backend/backend-init"]',
+    'update: chọn lẻ skill -> {action:update, scope, skills:[backend-init]}');
+}
+
+// update: cây skill preselect TẤT CẢ (mặc định = update mọi entry)
+{
+  const deps = makeDeps({ one: ['project'], tree: [['backend/backend-init']], confirm: [true] });
+  await runWizard('update', deps);
+  const call = deps._treeCalls[0];
+  const all = call.groups.flatMap((g) => g.skills.map((s) => s.value));
+  ok(all.length > 0 && call.opts.preselected.length === all.length,
+    'update: cây preselect tất cả skill đã cài (mặc định update hết)');
+  ok(!all.includes('core/principles') && !all.includes('backend/backend-principles'),
+    'update: cây loại baseline principles (không tách lẻ được)');
+}
+
+// update: chọn cả nhóm (nguyên plugin) -> skills gồm mọi skill của plugin đó
+{
+  const deps = makeDeps({ one: ['project'],
+    tree: [['backend/backend-init', 'backend/backend-testing']], confirm: [true] });
+  const r = await runWizard('update', deps);
+  ok(r && r.skills.includes('backend/backend-init') && r.skills.includes('backend/backend-testing'),
+    'update: chọn nguyên plugin -> skills gồm mọi skill của plugin');
 }
 
 // update: scope global (manifest rỗng) -> null (không có gì để update)

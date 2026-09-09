@@ -58,6 +58,7 @@ function reportUpdate(r) {
   else if (r.pulled.ok) console.log(`  1) git pull: ✓ ${(r.pulled.out || '').split('\n').filter(Boolean).slice(-1)[0] || ''}`.trimEnd());
   else console.log(`  1) git pull: ⚠ bỏ qua — ${r.pulled.reason} (dùng nguồn hiện tại)`);
   if (r.empty) { console.log('  Chưa cài plugin nào ở scope này — không có gì để update.'); return; }
+  if (r.noMatch) { console.log('  Không có entry nào khớp bộ lọc (--provider/--plugin/--skill) — không update gì.'); return; }
   console.log(`  2) build lại: ${r.built.join(', ')}`);
   console.log('  3) cập nhật plugin đã cài:');
   let reload = false;
@@ -130,6 +131,7 @@ LỆNH
                             môi trường/npm không hỗ trợ link)
   uninstall  (alias remove) gỡ workflow đã cài (không cờ → wizard chọn từ manifest)
   update                    cập nhật plugin đã cài: git pull → build → symlink giữ nguyên / copy cài lại
+                            (lọc được bằng --provider/--plugin/--skill; bỏ trống = mọi entry)
   check                     liệt kê đã cài gì ở scope hiện tại
   build                     chỉ build ra build/<tool>/ (không cài)
   pack                      đóng gói skill Cowork ra build/cowork/<skill>.zip (theo plugins/_cowork.json);
@@ -141,8 +143,9 @@ TÙY CHỌN
   --provider <p|all>        công cụ đích: ${PROVIDERS.join(', ')}, hoặc all (mặc định all)
   --plugin <id|all>         plugin cần cài/build: ${plugins.length ? plugins.join(', ') : '<id>'}, hoặc all (mặc định all)
                             — 'core' (nguyên tắc nền tảng) LUÔN tự đi kèm
-  --skill <a,b>             (chỉ install/uninstall) chọn skill LẺ dạng 'plugin/skill' hoặc tên
+  --skill <a,b>             (install/uninstall/update) chọn skill LẺ dạng 'plugin/skill' hoặc tên
                             skill; nhiều skill ngăn bằng dấu phẩy. Khác --plugin (cả plugin).
+                            update: lọc theo mức ENTRY — skill khớp làm tươi cả entry chứa nó.
   --as-plugin               (chỉ 'install', riêng claude) cài như PLUGIN THẬT qua "claude plugin"
                             (đăng ký marketplace + namespaced <id>:<skill>) thay vì copy skills phẳng
                             vào .claude/skills/. Cần có CLI "claude" trên PATH. provider khác giữ skills.
@@ -166,7 +169,9 @@ VÍ DỤ
   aip check -g                           # xem đã cài gì (global)
   aip uninstall --provider claude        # gỡ claude khỏi project
   aip uninstall                          # gỡ tất cả ở scope hiện tại
-  aip update                             # pull + build + cập nhật plugin đã cài (project)
+  aip update                             # pull + build + cập nhật MỌI plugin đã cài (project)
+  aip update --provider cursor           # chỉ cập nhật entry của cursor
+  aip update --plugin backend            # chỉ cập nhật entry chứa plugin backend
   aip update -g                          # tương tự cho scope global
   aip build --target all                 # chỉ build
   aip pack                               # đóng gói skill Cowork ra build/cowork/*.zip
@@ -209,7 +214,7 @@ async function main() {
       return;
     }
     case 'update':
-      return reportUpdate(update({ scope: args.scope }));
+      return reportUpdate(update({ scope: args.scope, providers: args.provider, plugins: args.plugin, skills: args.skill }));
     case 'check':
       return reportCheck(check({ scope: args.scope }));
     case 'pack': {

@@ -607,6 +607,21 @@ function uninstallEntries(m, root, predicate) {
   return removed;
 }
 
+/** Chuẩn hoá một trục lọc. undefined, 'all' (khi all=true) và mảng RỖNG đều là null = "không lọc
+ *  theo trục này". Không quy [] về null thì mệnh đề (!sel || …some(sel.includes)) thành
+ *  (false || false) → không entry nào khớp (vd args.skill mặc định []). Export để test. */
+export function normFilter(v, all = false) {
+  return !v || (all && v === 'all') || (Array.isArray(v) && !v.length) ? null : (Array.isArray(v) ? v : [v]);
+}
+/** PURE: entry có khớp bộ lọc (đã normFilter) không. Trục null = bỏ qua. plugin khớp theo khối
+ *  HOẶC theo prefix của skill lẻ; skill khớp theo tập hiệu lực (gồm generated <plugin>-principles). */
+export function entryMatches(e, provs, plugSel, skillSel) {
+  return (!provs || provs.includes(e.provider)) &&
+    (!plugSel || (e.plugins || []).some((p) => plugSel.includes(p))
+      || (e.skills || []).some((s) => plugSel.includes(s.split('/')[0]))) &&
+    (!skillSel || [...effectiveSkills(e)].some((s) => skillSel.includes(s)));
+}
+
 /** Gỡ cài đặt theo filter provider/plugin/skill/scope. Gỡ LẺ (plugin hoặc skill): khi entry còn
  *  phần khác, gỡ nguyên entry rồi cài lại phần GIỮ (tận dụng install cộng dồn) — vì manifest không
  *  tách file theo skill. Phần GIỮ dựng từ SELECTION NGUỒN của entry (plugins→allSkillsOf + skills lẻ),
@@ -614,21 +629,12 @@ function uninstallEntries(m, root, predicate) {
  *  resolveSelection nên sẽ ném khi cài lại. core/principles giữ nguyên trong remaining khi core còn —
  *  resolveSelection tự quy về whole-core, install lại tự ép core/principles. */
 export function uninstall({ providers, plugins, skills, scope = 'project' }) {
-  // Mảng RỖNG (vd args.skill/args.plugin mặc định []) phải quy về null = "không lọc theo trục này".
-  // Nếu để [] lọt qua, mệnh đề (!sel || …some(sel.includes)) thành (false || false) → matched luôn
-  // false → gỡ 0 file khi chỉ truyền --provider/--plugin. ('all' cũng là "không lọc".)
-  const norm = (v, all = false) =>
-    !v || (all && v === 'all') || (Array.isArray(v) && !v.length) ? null : (Array.isArray(v) ? v : [v]);
-  const provs = norm(providers, true);
-  const plugSel = norm(plugins, true);
-  const skillSel = norm(skills);
+  const provs = normFilter(providers, true);
+  const plugSel = normFilter(plugins, true);
+  const skillSel = normFilter(skills);
   const root = scopeRoot(scope);
   const m = readManifest(scope);
-  const matched = (e) =>
-    (!provs || provs.includes(e.provider)) &&
-    (!plugSel || (e.plugins || []).some((p) => plugSel.includes(p))
-      || (e.skills || []).some((s) => plugSel.includes(s.split('/')[0]))) &&
-    (!skillSel || [...effectiveSkills(e)].some((s) => skillSel.includes(s)));
+  const matched = (e) => entryMatches(e, provs, plugSel, skillSel);
 
   // Gỡ LẺ (plugin/skill): tính phần GIỮ LẠI của mỗi entry khớp → cài lại sau khi gỡ nguyên entry.
   const reinstall = [];
@@ -700,21 +706,31 @@ function gitPull() {
 /**
  * aip update — cập nhật các plugin ĐÃ CÀI ở scope, theo trình tự:
  *   1) git pull nguồn kit (best-effort; lỗi thì cảnh báo và vẫn tiếp tục với nguồn hiện tại)
- *   2) build lại các provider đã cài
+ *   2) build lại các provider (đã lọc) có entry khớp
  *   3) mỗi entry: skills-mode → CÀI LẠI (tái quét build, nhận cả skill mới); plugin → refresh qua `claude` CLI
- * @param {{scope?:'project'|'global', pull?:boolean}} opts  pull=false để bỏ qua git (dùng cho test).
+ * Filter provider/plugin/skill (giống uninstall) chọn ĐÚNG entry cần refresh; bỏ trống = mọi entry.
+ * Granularity ở mức ENTRY: một skill/plugin khớp làm tươi CẢ entry chứa nó (entry được reinstall
+ * nguyên khối từ build) — trục lọc quyết định entry NÀO được đụng, không tách file trong entry.
+ * @param {{scope?:'project'|'global', pull?:boolean, providers?, plugins?, skills?}} opts
+ *   pull=false để bỏ qua git (dùng cho test).
  */
-export function update({ scope = 'project', pull = true } = {}) {
+export function update({ scope = 'project', pull = true, providers, plugins, skills } = {}) {
   const pulled = pull ? gitPull() : { ok: true, skipped: true };
   const root = scopeRoot(scope);
   const m = readManifest(scope);
   if (!m.installs.length) return { scope, root, pulled, built: [], entries: [], empty: true };
 
-  const providers = [...new Set(m.installs.map((e) => e.provider))];
-  for (const p of providers) ensureBuilt(p); // "run build" cho đúng provider đã cài
+  const provs = normFilter(providers, true);
+  const plugSel = normFilter(plugins, true);
+  const skillSel = normFilter(skills);
+  const targets = m.installs.filter((e) => entryMatches(e, provs, plugSel, skillSel));
+  if (!targets.length) return { scope, root, pulled, built: [], entries: [], empty: false, noMatch: true };
+
+  const providersToBuild = [...new Set(targets.map((e) => e.provider))];
+  for (const p of providersToBuild) ensureBuilt(p); // "run build" cho đúng provider có entry khớp
 
   const entries = [];
-  for (const e of [...m.installs]) { // snapshot: install() bên dưới ghi lại manifest
+  for (const e of targets) { // snapshot: install() bên dưới ghi lại manifest
     if (e.mode === 'plugin') {
       try {
         // KHÔNG dùng install-semantics (marketplace add + plugin install đều no-op khi đã cài cùng
@@ -743,5 +759,5 @@ export function update({ scope = 'project', pull = true } = {}) {
       entries.push({ provider: e.provider, plugins: e.plugins, action: 'reinstall' });
     }
   }
-  return { scope, root, pulled, built: providers, entries, empty: false };
+  return { scope, root, pulled, built: providersToBuild, entries, empty: false };
 }
