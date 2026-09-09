@@ -89,18 +89,20 @@ export async function runWizard(action, deps = defaultDeps) {
       skills: p.skillIds.map((v) => ({ value: v, label: v.split('/')[1], locked: v === 'core/principles' })),
     }));
     // scope + provider hỏi TRƯỚC để biết bối cảnh, rồi mới dựng cây skill với preselect đúng provider.
+    // Nhãn theo TÊN bước, không dùng "N/5": bước kiểu cài chỉ hiện khi chọn claude nên tổng số bước
+    // thay đổi — mẫu số cố định sẽ sai khi bỏ qua bước đó.
     const st = await runSteps([
-      { key: 'scope', run: () => d.selectOne('install · Bước 1/5 · Chọn scope', SCOPE_ITEMS) },
-      { key: 'providers', run: (s) => d.selectMany('install · Bước 2/5 · Chọn provider', provItems, { preselected: s.providers, min: 1 }) },
+      { key: 'scope', run: () => d.selectOne('install · Scope', SCOPE_ITEMS) },
+      { key: 'providers', run: (s) => d.selectMany('install · Provider', provItems, { preselected: s.providers, min: 1 }) },
       { key: 'skills', run: (s) => {
           // Mặc định bật core/git-workflow để khớp default CLI (whole-core baseline) + skill đã cài của provider.
           const pre = new Set(['core/git-workflow', ...installedSkills(s.scope, s.providers)]);
-          return d.selectTree('install · Bước 3/5 · Chọn skill (gộp theo plugin)', skillGroups(), { preselected: [...pre], min: 1 });
+          return d.selectTree('install · Skill (gộp theo plugin)', skillGroups(), { preselected: [...pre], min: 1 });
         } },
       { key: 'mode', run: (s) => s.providers.includes('claude')
-          ? d.selectOne('install · Bước 4/5 · Kiểu cài cho claude', KIND_ITEMS)
+          ? d.selectOne('install · Kiểu cài cho claude', KIND_ITEMS)
           : 'skills' },
-      { key: 'ok', run: (s) => d.confirmStep('install · Bước 5/5 · Xác nhận',
+      { key: 'ok', run: (s) => d.confirmStep('install · Xác nhận',
           [`skills=${s.skills.join(',')} | providers=${s.providers.join(',')} | scope=${s.scope}` +
             (s.providers.includes('claude') ? ` | claude=${s.mode}` : '')]) },
     ]);
@@ -135,25 +137,49 @@ export async function runWizard(action, deps = defaultDeps) {
   }
 
   if (action === 'uninstall') {
-    // Skill CÀI được chọn để gỡ = hợp mọi entry copy-mode; bỏ baseline không gỡ lẻ được
-    // (core/principles + generated <plugin>-principles) — dùng removableGroups dùng chung ở trên.
+    // Copy-mode: cây skill gộp theo plugin (bỏ baseline không gỡ lẻ được). Plugin-mode (claude
+    // --as-plugin) do `claude` CLI quản, không tách skill → chọn theo NGUYÊN plugin. Hai loại được
+    // gỡ bằng hai lời gọi uninstall RIÊNG (mỗi loại scope đúng provider) nên không lẫn bộ lọc.
+    const pmItems = (scope) => d.check({ scope }).installs
+      .filter((e) => e.mode === 'plugin')
+      .flatMap((e) => (e.plugins || []).map((p) => ({ value: `${e.provider}::${p}`, label: `${e.provider}:${p} (plugin-mode)` })));
     const st = await runSteps([
-      { key: 'scope', run: () => d.selectOne('uninstall · Bước 1/3 · Chọn scope', SCOPE_ITEMS) },
+      { key: 'scope', run: () => d.selectOne('uninstall · Scope', SCOPE_ITEMS) },
       { key: 'skills', run: (s) => {
-          const installs = d.check({ scope: s.scope }).installs.filter((e) => e.mode !== 'plugin');
-          const groups = removableGroups(installs);
-          if (!groups.length) { console.log(`\nKhông có skill nào (copy-mode) đã cài ở scope=${s.scope} để gỡ. (b để đổi scope, q để thoát)`); return CANCEL; }
-          return d.selectTree('uninstall · Bước 2/3 · Chọn skill để gỡ (gộp theo plugin)', groups, { min: 1 });
+          const groups = removableGroups(d.check({ scope: s.scope }).installs.filter((e) => e.mode !== 'plugin'));
+          if (!groups.length) {
+            if (!pmItems(s.scope).length) { console.log(`\nKhông có gì đã cài ở scope=${s.scope} để gỡ. (b để đổi scope, q để thoát)`); return CANCEL; }
+            return []; // chỉ có plugin-mode → bỏ chọn skill, sang bước chọn plugin
+          }
+          return d.selectTree('uninstall · Skill copy-mode (gộp theo plugin)', groups, { min: 1 });
         } },
-      { key: 'ok', run: (s) => d.confirmStep('uninstall · Bước 3/3 · Xác nhận gỡ', [`skills=${s.skills.join(',')} | scope=${s.scope}`]) },
+      { key: 'pmPlugins', run: (s) => {
+          const items = pmItems(s.scope);
+          if (!items.length) return []; // không có plugin-mode → bỏ qua bước này
+          return d.selectMany('uninstall · Plugin-mode (claude) để gỡ', items, { min: (s.skills || []).length ? 0 : 1 });
+        } },
+      { key: 'ok', run: (s) => {
+          const parts = [];
+          if ((s.skills || []).length) parts.push(`skills=${s.skills.join(',')}`);
+          if ((s.pmPlugins || []).length) parts.push(`plugin-mode=${s.pmPlugins.join(',')}`);
+          return d.confirmStep('uninstall · Xác nhận gỡ', [`${parts.join(' | ')} | scope=${s.scope}`]);
+        } },
     ]);
     if (!st) return null;
-    // providers ảnh hưởng = các provider copy-mode đang chứa ≥1 skill vừa chọn (uninstall() lọc thêm theo skill).
-    const installs = d.check({ scope: st.scope }).installs.filter((e) => e.mode !== 'plugin');
+    // providers copy-mode ảnh hưởng = provider chứa ≥1 skill vừa chọn (uninstall() lọc thêm theo skill).
     const providers = [...new Set(
-      installs.filter((e) => (e.skills || []).some((sid) => st.skills.includes(sid))).map((e) => e.provider),
+      d.check({ scope: st.scope }).installs.filter((e) => e.mode !== 'plugin')
+        .filter((e) => (e.skills || []).some((sid) => (st.skills || []).includes(sid))).map((e) => e.provider),
     )];
-    return { action: 'uninstall', providers, skills: st.skills, scope: st.scope };
+    // Gom plugin-mode theo provider → mỗi provider một lời gỡ riêng (scope đúng provider, không lẫn).
+    const byProvider = new Map();
+    for (const v of (st.pmPlugins || [])) {
+      const [prov, plug] = v.split('::');
+      if (!byProvider.has(prov)) byProvider.set(prov, []);
+      byProvider.get(prov).push(plug);
+    }
+    const pluginModeRemovals = [...byProvider.entries()].map(([provider, plugins]) => ({ provider, plugins }));
+    return { action: 'uninstall', providers, skills: st.skills || [], scope: st.scope, pluginModeRemovals };
   }
 
   return null;

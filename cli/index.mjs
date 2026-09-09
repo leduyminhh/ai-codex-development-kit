@@ -108,8 +108,18 @@ async function wizardFlow(action) {
   if (sel.action === 'install') return reportInstall(install(sel));
   if (sel.action === 'update') return reportUpdate(update(sel));
   if (sel.action === 'uninstall') {
-    const r = uninstall(sel);
-    console.log(`\n✓ Đã gỡ ${r.removed} file (scope=${r.scope}) tại ${r.root}.`);
+    // Copy-mode (theo skill) và plugin-mode (theo provider+plugin) gỡ bằng hai lời gọi riêng để
+    // bộ lọc mỗi loại được scope đúng, không lẫn sang entry khác.
+    let removed = 0, root = sel.root;
+    if ((sel.skills || []).length && (sel.providers || []).length) {
+      const r = uninstall({ providers: sel.providers, skills: sel.skills, scope: sel.scope });
+      removed += r.removed; root = r.root;
+    }
+    for (const pm of (sel.pluginModeRemovals || [])) {
+      const r = uninstall({ providers: [pm.provider], plugins: pm.plugins, scope: sel.scope });
+      removed += r.removed; root = r.root;
+    }
+    console.log(`\n✓ Đã gỡ ${removed} file (scope=${sel.scope}) tại ${root}.`);
   }
 }
 

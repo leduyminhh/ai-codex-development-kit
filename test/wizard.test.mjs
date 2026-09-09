@@ -211,6 +211,33 @@ function makeDeps({ one = [], many = [], confirm = [], tree = [], catalog = CATA
   ok(r === null, 'uninstall: manifest rỗng -> null');
 }
 
+// uninstall: scope CHỈ có plugin-mode -> bỏ bước skill, chọn plugin để gỡ (pluginModeRemovals)
+{
+  const pmInstalls = [{ provider: 'claude', mode: 'plugin', plugins: ['backend', 'frontend'] }];
+  const deps = makeDeps({ one: ['project'], many: [['claude::backend']], confirm: [true],
+    installsFor: (scope) => (scope === 'project' ? pmInstalls : []) });
+  const r = await runWizard('uninstall', deps);
+  ok(r && r.action === 'uninstall' && JSON.stringify(r.skills) === '[]'
+    && JSON.stringify(r.pluginModeRemovals) === JSON.stringify([{ provider: 'claude', plugins: ['backend'] }]),
+    'uninstall pure-plugin-mode: skills rỗng, pluginModeRemovals gom theo provider');
+}
+
+// uninstall: mixed copy + plugin-mode -> hai loại tách riêng, đúng provider
+{
+  const mixed = [
+    { provider: 'cursor', mode: 'skills', skills: ['core/principles', 'backend/backend-init', 'backend/backend-principles'] },
+    { provider: 'claude', mode: 'plugin', plugins: ['frontend'] },
+  ];
+  const deps = makeDeps({ one: ['project'], tree: [['backend/backend-init']],
+    many: [['claude::frontend']], confirm: [true],
+    installsFor: (scope) => (scope === 'project' ? mixed : []) });
+  const r = await runWizard('uninstall', deps);
+  ok(r && JSON.stringify(r.skills) === '["backend/backend-init"]'
+    && JSON.stringify(r.providers) === '["cursor"]'
+    && JSON.stringify(r.pluginModeRemovals) === JSON.stringify([{ provider: 'claude', plugins: ['frontend'] }]),
+    'uninstall mixed: copy-mode theo skill + plugin-mode theo provider, không lẫn');
+}
+
 // update: scope -> cây skill -> confirm; chọn LẺ 1 skill -> filter skills đúng
 {
   const deps = makeDeps({ one: ['project'], tree: [['backend/backend-init']], confirm: [true] });
